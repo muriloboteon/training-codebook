@@ -1,0 +1,10 @@
+html, body, #root {
+  height: 100%;
+  margin: 0;
+}
+
+/* input/text/placeholder token (#889EA8) — não é possível via inline style */
+.tb-search::placeholder {
+  color: #889EA8;
+  opacity: 1;
+}

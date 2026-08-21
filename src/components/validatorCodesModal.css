@@ -1,0 +1,609 @@
+/* -----------------------------------------------------------------------------
+   validatorCodesModal.css
+
+   CSS portado do export "Validator" (tela AI Coder do Ascribe) — especificamente
+   o modal de codes (#aiCoder-dialog-prompt-multiline / CodebookDialog +
+   CodebookEditor). As regras foram copiadas dos stylesheets originais
+   (stylesheet_1.css e stylesheet_3.css) e escopadas sob `.validator-overlay`
+   para não vazar para o resto do app (que usa inline styles + tokens.ts).
+
+   Este é um recurso SÓ de protótipo/validação, não faz parte do produto real.
+   -------------------------------------------------------------------------- */
+
+/* Reset border-box (o export dependia do reset global do Bootstrap, que não foi
+   portado). Escopado sob .validator-overlay para não afetar o resto do app.
+   Sem isso, paddings somam à largura e o footer/botões estouram o modal. */
+.validator-overlay,
+.validator-overlay *,
+.validator-overlay *::before,
+.validator-overlay *::after {
+    box-sizing: border-box;
+}
+
+/* Overlay escuro atrás do modal (preenche a área da aba Validator) */
+.validator-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 24px 0;
+    overflow: auto;
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+/* Diálogo / conteúdo do modal (Bootstrap base, portado) */
+.validator-overlay .modal-dialog {
+    position: relative;
+    width: 85vw;
+    max-width: 85vw;
+    margin: 0.5rem;
+    pointer-events: auto;
+}
+
+.validator-overlay .modal-content {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    /* Altura limitada para que header e footer fiquem fixos e só o modal-body
+       role. O valor reproduz a altura que o modal tinha quando o scroll ficava
+       no box interno (height: 100vh - 260px + chrome do header/footer/paddings). */
+    max-height: calc(100vh - 110px);
+    overflow: hidden;
+    background-color: rgb(255, 255, 255);
+    background-clip: padding-box;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    border-radius: 0.3rem;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    outline: 0px;
+}
+
+/* ---------------------------------------------------------------- Header --- */
+.validator-overlay .modal-header {
+    flex-shrink: 0;
+    justify-content: space-between;
+    border-top-left-radius: calc(-1px + 0.3rem);
+    border-top-right-radius: calc(-1px + 0.3rem);
+}
+
+.validator-overlay .dialogHeader {
+    background-color: rgb(246, 248, 249);
+    color: rgb(0, 27, 61);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    box-sizing: border-box;
+    height: 54px;
+    padding: 0 18px;
+    border-bottom: 1px solid rgb(214, 221, 225);
+    font-family: Figtree, sans-serif;
+    font-optical-sizing: auto;
+}
+
+/* Subtítulo dentro do body (rola junto com a lista): orientação + dica de edição.
+   Alinhado ao texto do net (padding-left 12px) e com respiro antes da lista. */
+.validator-overlay .codebookModalSubtitle {
+    margin: 0 0 20px;
+    padding: 0 12px;
+    font-family: Figtree, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    color: rgb(0, 27, 61);
+}
+
+.validator-overlay .dialogHeader .modal-title {
+    flex: 1 1 auto;
+    min-width: 0px;
+    margin: 0;
+    color: inherit;
+    font-family: inherit;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+.validator-overlay .dialogHeader > .btn-close,
+.validator-overlay .dialogHeader > span {
+    flex: 0 0 auto;
+}
+
+.validator-overlay .dialogHeader > span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    min-height: 28px;
+}
+
+.validator-overlay .dialogHeader > .btn-close {
+    margin-left: auto;
+}
+
+.validator-overlay .aiCoder-dialog-prompt-multiline-codebook-tools {
+    display: flex;
+    align-items: center;
+    /* Whitespace maior entre grupos distintos (busca | criar | destruir | exibição). */
+    gap: 1rem;
+    margin-left: auto;
+    margin-right: 0.5rem;
+    font-size: 14px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* Ações de criação: agrupadas com gap apertado para lê-las como um par. */
+.validator-overlay .codebookToolbarActionGroup {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.validator-overlay .codebookToolbarActionGroup .codebookToolbarButton {
+    margin-right: 0;
+}
+
+.validator-overlay .aiCoder-dialog-prompt-multiline-codebook-tools label {
+    margin-bottom: 0px;
+    cursor: pointer;
+}
+
+.validator-overlay .aiCoder-dialog-prompt-multiline-show-rules-group {
+    display: flex;
+    align-items: center;
+    /* Toggle de exibição: whitespace extra o afasta das ações e o aproxima do fechar. */
+    margin-left: 4px;
+    gap: 4px;
+}
+
+/* Campo de busca do header */
+#aiCoder-dialog-prompt-multiline-search {
+    box-sizing: border-box;
+    width: 300px;
+    height: 28px;
+    border: 1px solid rgb(200, 200, 200);
+    border-radius: 6px;
+    padding: 0px 8px;
+    font-family: Figtree, sans-serif;
+    font-size: 14px;
+    line-height: 26px;
+    color: rgb(108, 117, 125);
+    background-color: rgb(255, 255, 255);
+}
+
+#aiCoder-dialog-prompt-multiline-search::placeholder {
+    color: rgb(108, 117, 125);
+    opacity: 1;
+}
+
+#aiCoder-dialog-prompt-multiline-search:focus,
+#aiCoder-dialog-prompt-multiline-search:focus-visible {
+    outline: none;
+    box-shadow: none;
+    border-color: rgb(200, 200, 200);
+}
+
+/* -------------------------------------------------------- Toolbar buttons --- */
+.validator-overlay .codebookToolbarButton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 28px;
+    padding: 0px 8px;
+    gap: 6px;
+    margin-right: 2px;
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+    vertical-align: middle;
+    transition: background-color 140ms, border-color 140ms, color 140ms, box-shadow 140ms;
+    color: rgb(0, 27, 61) !important;
+    border-radius: 6px !important;
+    background-color: rgb(255, 255, 255) !important;
+    border: 1px solid rgb(214, 221, 225) !important;
+}
+
+.validator-overlay .codebookToolbarButton:hover,
+.validator-overlay .codebookToolbarButton:focus-visible {
+    border-color: rgb(178, 192, 199) !important;
+    background-color: rgb(236, 239, 241) !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+.validator-overlay .codebookToolbarButton:focus-visible {
+    outline-offset: 2px;
+    outline: rgb(142, 46, 239) solid 2px !important;
+}
+
+.validator-overlay .codebookToolbarButton:active {
+    border-color: rgb(106, 130, 141) !important;
+    background-color: rgb(236, 239, 241) !important;
+    box-shadow: rgba(0, 0, 0, 0.12) 0px 1px 2px inset !important;
+}
+
+.validator-overlay .aiCoderHeaderButtonIconOnly {
+    flex: 0 0 28px;
+    width: 28px;
+    min-width: 28px;
+    height: 28px;
+    min-height: 28px;
+    padding: 0px;
+}
+
+.validator-overlay .codebookToolbarButton:disabled,
+.validator-overlay .codebookToolbarButton.disabled {
+    opacity: 0.45;
+    pointer-events: none;
+    cursor: not-allowed;
+    color: rgb(0, 27, 61) !important;
+    background-color: rgb(255, 255, 255) !important;
+    border: 1px solid rgb(214, 221, 225) !important;
+    box-shadow: none !important;
+    outline: none !important;
+}
+
+.validator-overlay .codebookButtonIcon {
+    flex: 0 0 16px;
+    width: 16px;
+    height: 16px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Botão fechar (X) — Bootstrap portado */
+.validator-overlay .btn-close {
+    box-sizing: content-box;
+    width: 1em;
+    height: 1em;
+    padding: 0.25em;
+    color: rgb(0, 0, 0);
+    background: transparent url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23000'%3e%3cpath d='M.293.293a1 1 0 011.414 0L8 6.586 14.293.293a1 1 0 111.414 1.414L9.414 8l6.293 6.293a1 1 0 01-1.414 1.414L8 9.414l-6.293 6.293a1 1 0 01-1.414-1.414L6.586 8 .293 1.707a1 1 0 010-1.414z'/%3e%3c/svg%3e") center center / 1em no-repeat;
+    border: 0px;
+    border-radius: 0.25rem;
+    cursor: pointer;
+    opacity: 0.5;
+}
+
+.validator-overlay .btn-close:hover {
+    opacity: 0.75;
+}
+
+/* Checkbox "Code rules" — Bootstrap portado */
+.validator-overlay .form-check-input {
+    width: 1em;
+    height: 1em;
+    margin-top: 0.25em;
+    vertical-align: top;
+    background-color: rgb(255, 255, 255);
+    background-repeat: no-repeat;
+    background-position: center center;
+    background-size: contain;
+    border: 1px solid rgba(0, 0, 0, 0.25);
+    border-radius: 0.25em;
+    appearance: none;
+    cursor: pointer;
+}
+
+.validator-overlay .form-check-input:checked {
+    background-color: rgb(13, 110, 253);
+    border-color: rgb(13, 110, 253);
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23fff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='m6 10 3 3 6-6'/%3e%3c/svg%3e");
+}
+
+/* ------------------------------------------------------------------ Body --- */
+.validator-overlay .modal-body {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 1rem;
+}
+
+#aiCoder-dialog-prompt-multiline-html {
+    font-family: Figtree, sans-serif;
+    font-size: 14px;
+    line-height: 22px;
+    white-space: normal;
+    overflow-wrap: break-word;
+    word-break: break-word;
+    color: rgb(0, 27, 61);
+}
+
+#aiCoder-dialog-prompt-multiline-html .codebook-net {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-sizing: border-box;
+    margin-top: 14px;
+    padding: 8px 12px;
+    font-family: Figtree, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 22px;
+    color: rgb(0, 27, 61);
+    background-color: rgb(236, 239, 241);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.15s, box-shadow 0.15s;
+}
+
+#aiCoder-dialog-prompt-multiline-html .codebook-net:first-child {
+    margin-top: 0px;
+}
+
+#aiCoder-dialog-prompt-multiline-html .codebook-net:hover {
+    background-color: rgb(250, 245, 255) !important;
+    box-shadow: rgb(214, 178, 255) 3px 0px 0px inset;
+}
+
+/* Edição por duplo-clique: só-leitura por padrão (sem realce no hover); o
+   padding/margin ficam reservados sempre (sem reflow ao focar) e só mudam o
+   fundo branco + anel roxo quando o campo está em edição (:focus). */
+#aiCoder-dialog-prompt-multiline-html .codebook-net-label {
+    flex: 1 1 auto;
+    min-width: 0px;
+    padding: 2px 6px;
+    margin: -2px -6px;
+    border-radius: 4px;
+    cursor: default;
+    background-color: transparent;
+    transition: box-shadow 0.15s;
+}
+
+#aiCoder-dialog-prompt-multiline-html .codebook-net-label[contenteditable="true"] {
+    cursor: text;
+}
+
+#aiCoder-dialog-prompt-multiline-html .codebook-net-label:focus {
+    outline: none;
+    background-color: rgb(255, 255, 255);
+    box-shadow: rgb(142, 46, 239) 0px 0px 0px 2px;
+}
+
+#aiCoder-dialog-prompt-multiline-html .codebook-code {
+    display: flex;
+    align-items: flex-start;
+    gap: 4px;
+    box-sizing: border-box;
+    padding: 8px 10px;
+    padding-left: 8px;
+    font-family: Figtree, sans-serif;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 22px;
+    color: rgb(0, 27, 61);
+    border-radius: 4px;
+    border-bottom: 1px solid #f0f0f0;
+    cursor: pointer;
+    transition: background-color 0.15s, box-shadow 0.15s;
+}
+
+#aiCoder-dialog-prompt-multiline-html .codebook-code:hover,
+#aiCoder-dialog-prompt-multiline-html .codebook-code.selected {
+    background-color: rgb(250, 245, 255) !important;
+    box-shadow: rgb(214, 178, 255) 3px 0px 0px inset;
+}
+
+/* Item selecionado: borda (inset) em #8e2eef, mais forte que o hover. */
+#aiCoder-dialog-prompt-multiline-html .codebook-code.selected {
+    box-shadow: rgb(142, 46, 239) 3px 0px 0px inset;
+}
+
+#aiCoder-dialog-prompt-multiline-html .codebook-code[contenteditable="true"]:focus {
+    outline: none;
+    background-color: rgb(255, 255, 255);
+    box-shadow: rgb(142, 46, 239) 0px 0px 0px 2px inset;
+}
+
+/* Code sendo arrastado (origem do merge): apagado enquanto o drag acontece. */
+#aiCoder-dialog-prompt-multiline-html .codebook-code.dragging {
+    opacity: 0.4;
+}
+
+/* Code sob o cursor durante o drag (alvo do merge): realce em #8e2eef com
+   contorno completo para diferenciar do estado de seleção (que é inset). */
+#aiCoder-dialog-prompt-multiline-html .codebook-code.merge-target {
+    background-color: rgb(250, 245, 255) !important;
+    box-shadow: rgb(142, 46, 239) 0px 0px 0px 2px inset !important;
+}
+
+#aiCoder-dialog-prompt-multiline-html .codebook-code-drag-handle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 24px;
+    width: 24px;
+    height: 22px;
+    border-radius: 4px;
+    color: rgb(0, 27, 61);
+    background-color: transparent;
+    border: none;
+    opacity: 0;
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+    transition: opacity 0.15s, color 0.15s;
+}
+
+#aiCoder-dialog-prompt-multiline-html .codebook-code-drag-handle svg {
+    width: 16px;
+    height: 16px;
+}
+
+#aiCoder-dialog-prompt-multiline-html .codebook-code-drag-handle:hover {
+    opacity: 1;
+    color: rgb(0, 27, 61);
+}
+
+#aiCoder-dialog-prompt-multiline-html .codebook-code:hover .codebook-code-drag-handle,
+#aiCoder-dialog-prompt-multiline-html .codebook-code.selected .codebook-code-drag-handle {
+    opacity: 1;
+    color: rgb(0, 27, 61);
+}
+
+/* Coluna de texto do code: label na 1ª linha, rule (descrição) logo abaixo. */
+#aiCoder-dialog-prompt-multiline-html .codebook-code-body {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1 1 auto;
+    min-width: 0px;
+}
+
+#aiCoder-dialog-prompt-multiline-html .codebook-code-label {
+    align-self: flex-start;
+    max-width: 100%;
+    font-weight: 500;
+    color: rgb(0, 27, 61);
+    padding: 2px 6px;
+    margin: -2px -6px;
+    border-radius: 4px;
+    cursor: default;
+    background-color: transparent;
+    transition: box-shadow 0.15s;
+}
+
+#aiCoder-dialog-prompt-multiline-html .codebook-code-label[contenteditable="true"] {
+    cursor: text;
+}
+
+#aiCoder-dialog-prompt-multiline-html .codebook-code-label:focus {
+    outline: none;
+    background-color: rgb(255, 255, 255);
+    box-shadow: rgb(142, 46, 239) 0px 0px 0px 2px;
+}
+
+/* Separador " · " era usado quando label e rule ficavam na mesma linha.
+   Com o layout em duas linhas (label acima, descrição abaixo) ele fica
+   redundante — escondido visualmente, mas mantido no markup. */
+#aiCoder-dialog-prompt-multiline-html .codebook-rule-separator {
+    display: none;
+    user-select: none;
+    pointer-events: none;
+    margin: 0px 6px;
+    color: rgb(106, 130, 141);
+    font-size: 12px;
+    font-weight: 400;
+}
+
+#aiCoder-dialog-prompt-multiline-html .codebook-rule {
+    align-self: flex-start;
+    max-width: 100%;
+    font-family: Figtree, sans-serif;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 20px;
+    color: rgb(69, 86, 95);
+    padding: 2px 6px;
+    margin: -2px -6px;
+    border-radius: 4px;
+    cursor: default;
+    background-color: transparent;
+    transition: box-shadow 0.15s;
+}
+
+#aiCoder-dialog-prompt-multiline-html .codebook-rule[contenteditable="true"] {
+    cursor: text;
+}
+
+#aiCoder-dialog-prompt-multiline-html .codebook-rule:focus {
+    outline: none;
+    background-color: rgb(255, 255, 255);
+    box-shadow: rgb(142, 46, 239) 0px 0px 0px 2px;
+}
+
+/* ---------------------------------------------------------------- Footer --- */
+.validator-overlay .modal-footer {
+    display: flex;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 0.75rem;
+    border-top: 1px solid rgb(222, 226, 230);
+    border-bottom-right-radius: calc(-1px + 0.3rem);
+    border-bottom-left-radius: calc(-1px + 0.3rem);
+}
+
+.validator-overlay .aiCoder-dialog-prompt-multiline-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    width: 100%;
+}
+
+.validator-overlay .aiCoder-dialog-prompt-multiline-codebook-footer-tools {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.validator-overlay .aiCoder-dialog-prompt-multiline-footer-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-left: auto;
+}
+
+/* Botões de ação (footer) — base .btn Bootstrap + overrides do Ascribe */
+.validator-overlay .btn {
+    display: inline-block;
+    font-weight: 400;
+    line-height: 1.5;
+    text-align: center;
+    text-decoration: none;
+    vertical-align: middle;
+    cursor: pointer;
+    user-select: none;
+    border: 1px solid transparent;
+    padding: 0.375rem 0.75rem;
+    font-size: 14px;
+    border-radius: 0.25rem;
+    transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out,
+        border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.validator-overlay .aiCoderSecondaryActionButton {
+    background-color: rgb(255, 255, 255) !important;
+    border: 1px solid rgb(206, 212, 218) !important;
+    color: rgb(73, 80, 87) !important;
+    border-radius: 8px !important;
+    box-shadow: none !important;
+}
+
+.validator-overlay .aiCoderSecondaryActionButton:hover,
+.validator-overlay .aiCoderSecondaryActionButton:focus-visible {
+    background-color: rgb(248, 249, 250) !important;
+    border-color: rgb(173, 181, 189) !important;
+    color: rgb(52, 58, 64) !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+.validator-overlay .aiCoderPrimaryActionButton {
+    transition: background-color 140ms, border-color 140ms, color 140ms, box-shadow 140ms;
+    color: rgb(255, 255, 255) !important;
+    background-color: rgb(85, 25, 138) !important;
+    border: 1px solid rgb(85, 25, 138) !important;
+    border-radius: 6px !important;
+    box-shadow: none !important;
+}
+
+.validator-overlay .aiCoderPrimaryActionButton:hover,
+.validator-overlay .aiCoderPrimaryActionButton:focus-visible {
+    color: rgb(255, 255, 255) !important;
+    background-color: rgb(104, 30, 171) !important;
+    border-color: rgb(104, 30, 171) !important;
+    outline: none !important;
+}
+
+.validator-overlay .aiCoderPrimaryActionButton:active {
+    background-color: rgb(104, 30, 171) !important;
+    border-color: rgb(104, 30, 171) !important;
+    box-shadow: rgba(0, 0, 0, 0.12) 0px 1px 2px inset !important;
+}

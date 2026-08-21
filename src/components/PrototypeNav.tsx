@@ -20,8 +20,8 @@ interface PrototypeNavProps {
 }
 
 const TABS: { id: PrototypeView; label: string }[] = [
-    { id: 'account-codebooks', label: 'Account Codebooks' },
     { id: 'validator', label: 'Validator' },
+    { id: 'account-codebooks', label: 'Account Codebooks' },
 ];
 
 function PrototypeNav({ activeView, onChange }: PrototypeNavProps) {

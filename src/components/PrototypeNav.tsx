@@ -21,7 +21,7 @@ interface PrototypeNavProps {
 
 const TABS: { id: PrototypeView; label: string }[] = [
     { id: 'validator', label: 'Validator' },
-    { id: 'account-codebooks', label: 'Account Codebooks' },
+    { id: 'account-codebooks', label: 'Account Codebooks - In Progress' },
 ];
 
 function PrototypeNav({ activeView, onChange }: PrototypeNavProps) {

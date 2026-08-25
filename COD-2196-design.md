@@ -1,10 +1,10 @@
-# TICKET-ID — Validator Dialog Design Handoff
+# COD-2196 — Validator Dialog Design Handoff
 
 > **For:** [dev name]
 > **From:** Murilo Boteon (Design)
-> **Prototype repo:** [GitHub URL]
+> **Prototype repo:** https://github.com/muriloboteon/training-codebook
 > **Live prototype:** [Vercel URL]
-> **Jira ticket:** [TICKET-ID]
+> **Jira ticket:** COD-2196
 
 ---
 

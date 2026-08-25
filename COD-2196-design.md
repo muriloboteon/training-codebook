@@ -141,16 +141,6 @@ Font throughout: **Figtree, sans-serif**.
 
 ---
 
-## Specific fixes worth calling out (optional)
-
-> If a particular change was important or non-obvious and you want the dev to pay special attention,
-> drop it here as a one-liner. Otherwise the spec above already covers it.
-
-- [e.g. "Delete used to be always-on — it must be disabled until a code is selected."]
-- [e.g. "…"]
-
----
-
 ## Out of scope / do NOT reference
 
 - `ValidatorPage.tsx`, `PrototypeNav.tsx`, and anything else that only exists to move between
@@ -158,11 +148,6 @@ Font throughout: **Figtree, sans-serif**.
 - Alloy scaffolding and any Claude Code / Vite setup files (`SETUP*.md`, `.claude/`, etc.).
 - Anything outside the Validator dialog (the Account Codebooks page, Coder/AI Coder tables, Train
   Codebook wizard).
-
----
-
-## Open questions
-
 
 ---
 

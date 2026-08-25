@@ -35,56 +35,19 @@ styling. Match them; don't re-guess sizes.
 | Dialog styles (source of truth for values) | [`src/components/validatorCodesModal.css`](src/components/validatorCodesModal.css) | All measurements/colors below come from here. Scoped under `.validator-overlay`. |
 | Prototype-only wrapper | [`src/components/ValidatorPage.tsx`](src/components/ValidatorPage.tsx) | Renders the modal over a dark overlay inside the tab area. **Not part of the real product — do not reference.** |
 
-> The tables below are a convenience summary. **`validatorCodesModal.css` is the authoritative
+> The spec below is a convenience summary. **`validatorCodesModal.css` is the authoritative
 > source** — if anything here and the file disagree, the file wins.
 
 ---
 
-## Target behavior — what to reference
+## The dialog, element by element
 
+Each element below lists **what it is / how it behaves** together with **the values to match**.
 The dialog has three regions: a fixed **header toolbar**, a scrollable **body** (the codebook), and
 a fixed **footer**. Header and footer stay pinned; only the body scrolls.
 
-### Header toolbar
-- **Title** — a code count, e.g. "67 Codes".
-- **Search** field (`Search...`) to filter the list.
-- **New Net** button (folder-plus icon + label) — enabled.
-- **New Code** button (square-plus icon + label) — shown **disabled** in this state.
-- **Delete** — **icon-only** trash button. Disabled by default; enabled **only when ≥1 code is
-  selected**.
-- **View code rules** — a checkbox, **on by default**. On → each code shows its rule; off → codes
-  collapse to just their label.
-- **Close** (×) at the far right.
-
-### Body — the codebook
-- A **subtitle** at the top of the scroll area (scrolls with the list, not pinned):
-  *"Review and refine your codebook. Click any code or rule to edit."*
-- A flat sequence of **nets** (group headers) and **codes** under them.
-- Each **code** is laid out on **two lines**: the **label** on top, the **rule** underneath (rule
-  hidden when "View code rules" is off), with a **drag handle** (grip dots) to the left that appears
-  on hover/selection. *(There's a ` · ` separator in the markup but it's hidden — leftover from a
-  one-line layout; don't render it.)*
-- **Nets** have a label only — no drag handle.
-
-### Interactions
-- **Select** — click a code to select it (persists until you click another code or empty space).
-  Hold **Ctrl/⌘** to select **multiple**.
-- **Edit inline** — **double-click** a net label, code label, or rule to edit in place; caret lands
-  at the end. **Enter** or **Esc** confirms. Only records a change if the text actually changed.
-- **Drag to merge** — drag a code by its handle onto **another code**: the target keeps its rule and
-  its label becomes `"<dragged label>, <target label>"`; the dragged code is removed. Drop target
-  highlights while hovering. Nets aren't drop targets; the drag acts on the single grabbed code.
-
-### Footer
-- **Left (icon-only):** **Undo**, **Redo**, **Copy**. Undo/Redo disabled when there's nothing to
-  undo/redo; edits and merges both feed this history.
-- **Right:** **Cancel** (secondary) · **Apply Codebook** (primary).
-
----
-
-## Visual spec (values to match)
-
-Font throughout: **Figtree, sans-serif**.
+Font throughout: **Figtree, sans-serif**. All sizes are in **px** (the prototype's CSS mixes `rem`
+and `px`; `1rem = 16px`).
 
 ### Color palette
 
@@ -95,7 +58,7 @@ Font throughout: **Figtree, sans-serif**.
 | Muted (placeholder, separator) | `#6C757D` / `#6A828D` |
 | Header background | `#F6F8F9` |
 | Net bg / button-hover bg | `#ECEFF1` |
-| Borders (buttons, header, net divider) | `#D6DDE1` (rows: `#F0F0F0`) |
+| Borders (buttons, header, net divider) | `#D6DDE1` (code rows: `#F0F0F0`) |
 | Selection / hover tint (bg) | `#FAF5FF` |
 | Hover accent bar (inset) | `#D6B2FF` |
 | **Brand purple** — focus ring, selected bar, merge target | `#8E2EEF` |
@@ -103,41 +66,84 @@ Font throughout: **Figtree, sans-serif**.
 | Checkbox checked | `#0D6EFD` *(Bootstrap blue)* |
 
 ### Dialog shell
-- Overlay: `rgba(0,0,0,0.5)`. Dialog width **85vw**, `max-height: calc(100vh - 110px)`, white bg,
-  border `1px rgba(0,0,0,0.2)`, radius `0.3rem`, shadow `0 0.5rem 1rem rgba(0,0,0,0.15)`.
 
-### Header
-- Height **54px**, padding **0 18px**, bg `#F6F8F9`, bottom border `1px #D6DDE1`, gap 6px.
-- Title: **16px / 600**, line-height 1.3.
-- Tools row: gap **1rem** between groups; the New Net + New Code pair gaps **6px**.
-- Search: **300 × 28px**, border `1px #C8C8C8`, radius 6px, padding `0 8px`, **14px** text.
+- Centered modal over a dark overlay.
+- **Overlay:** bg `rgba(0,0,0,0.5)`, padding `24px` top/bottom.
+- **Dialog:** width **85vw**, `max-height: calc(100vh - 110px)`, white bg, border `1px rgba(0,0,0,0.2)`,
+  radius **~5px**, shadow `0 8px 16px rgba(0,0,0,0.15)`.
 
-### Toolbar buttons (New Net / New Code / Delete)
-- Height **28px**, padding `0 8px`, gap 6px, **12px / 500**, radius **6px**, white bg,
-  border `1px #D6DDE1`, ink text. Icon **16×16**.
-- Hover: bg `#ECEFF1`, border `#B2C0C7`. Active: border `#6A828D` + inset shadow.
-- Focus-visible: `2px #8E2EEF` outline.
-- Disabled: `opacity 0.45`, not-allowed.
-- Icon-only (Delete, and footer Undo/Redo/Copy): **28×28** square, no padding.
+### Header toolbar (pinned)
 
-### Body
-- Padding **1rem**, vertical scroll. List text **14px**, line-height **22px**, ink.
-- Subtitle: margin `0 0 20px`, padding `0 12px`, **14px**, line-height 1.5, ink.
-- **Net:** padding `8px 12px`, **14px / 600**, bg `#ECEFF1`, radius 6px, `margin-top 14px`
-  (first has none). Hover: tint bg + `3px` inset `#D6B2FF` bar.
-- **Code:** padding `8px 10px` (left 8px), radius 4px, bottom divider `1px #F0F0F0`, **14px / 400**.
-  - Label: **500 weight**, ink. Rule: **14px / 400**, line-height 20px, `#45565F`.
-  - Hover **and** selected: tint bg `#FAF5FF` + `3px` inset bar — **hover uses `#D6B2FF`, selected
-    uses `#8E2EEF`** (selected reads stronger).
-  - Editing a field: white bg + **`2px` inset `#8E2EEF` ring**.
-  - Being dragged: `opacity 0.4`. Merge target: white-purple bg + `2px` inset `#8E2EEF` ring.
-  - Drag handle: **24×22**, hidden (`opacity 0`) until the row is hovered/selected; `cursor: grab`.
+Bar: height **54px**, padding **0 18px**, bg `#F6F8F9`, bottom border `1px #D6DDE1`, items gap **6px**.
+Groups are spaced **16px** apart; the New Net + New Code pair sits together with a **6px** gap.
 
-### Footer
-- Padding **0.75rem**, top border `1px #DEE2E6`. Left tools and right actions each gap `0.5rem`.
-- Buttons: padding `0.375rem 0.75rem`, **14px**.
-  - **Secondary (Cancel):** white bg, border `1px #CED4DA`, text `#495057`, radius **8px**.
-  - **Primary (Apply Codebook):** white text, bg `#55198A`, radius **6px**; hover bg `#681EAB`.
+**Shared toolbar-button style** (New Net / New Code / Delete): height **28px**, padding `0 8px`,
+gap 6px, **12px / 500**, radius **6px**, white bg, border `1px #D6DDE1`, ink text, icon **16×16**.
+Hover: bg `#ECEFF1`, border `#B2C0C7`. Active: border `#6A828D` + inset shadow. Focus-visible:
+`2px #8E2EEF` outline. Disabled: `opacity 0.45`, not-allowed.
+
+- **Title** — a code count, e.g. "67 Codes". **16px / 600**, line-height ~21px, ink.
+- **Search** — filters the list. **300 × 28px**, border `1px #C8C8C8`, radius 6px, padding `0 8px`, **14px**.
+- **New Net** — folder-plus icon + label. Enabled.
+- **New Code** — square-plus icon + label. Shown **disabled** in this state.
+- **Delete** — **icon-only** trash button (**28×28**, no padding). Disabled by default; enabled
+  **only when ≥1 code is selected**.
+- **View code rules** — a checkbox, **on by default** (checked color `#0D6EFD`). On → each code shows
+  its rule; off → codes collapse to just their label.
+- **Close (×)** — far right.
+
+### Body (scrolls)
+
+Scroll area: padding **16px**. List text **14px**, line-height **22px**, ink. It's a flat sequence of
+**nets** (group headers) and the **codes** under them.
+
+- **Subtitle** — *"Review and refine your codebook. Click any code or rule to edit."* Scrolls with the
+  list (not pinned). Margin `0 0 20px`, padding `0 12px`, **14px**, line-height ~21px, ink.
+
+#### Net (group header)
+
+- **What / behavior:** a group label; **label only, no drag handle**. Double-click the label to edit
+  inline.
+- **Layout:** padding `8px 12px`, radius 6px, bg `#ECEFF1`, **14px / 600**, ink, `margin-top 14px`
+  (first net has none).
+- **Hover:** tint bg `#FAF5FF` + **3px inset `#D6B2FF`** bar.
+- **Editing:** white bg + **2px `#8E2EEF`** focus ring; caret lands at end; **Enter** or **Esc** confirms.
+
+#### Code
+
+- **What / behavior:** two lines — **label** on top, **rule** underneath — with a **drag handle** at
+  the left. Click to select; double-click a field to edit; drag onto another code to merge.
+- **Layout:** padding `8px 10px` (left 8px), gap 4px, radius 4px, bottom divider `1px #F0F0F0`,
+  **14px / 400**, ink. The text column is stacked (label above rule), gap 4px.
+  - **Label:** **500 weight**, ink.
+  - **Rule:** **14px / 400**, line-height 20px, `#45565F`. Hidden when "View code rules" is off.
+    *(A `·` separator exists in the markup but is hidden — don't render it.)*
+  - **Drag handle:** **24×22**, icon 16×16, `cursor: grab`. Hidden (`opacity 0`) until the row is
+    hovered or selected.
+- **States:**
+  - **Hover:** tint bg `#FAF5FF` + **3px inset `#D6B2FF`** bar.
+  - **Selected:** tint bg `#FAF5FF` + **3px inset `#8E2EEF`** bar (reads stronger than hover).
+  - **Editing a field:** white bg + **2px `#8E2EEF`** focus ring.
+  - **Being dragged:** `opacity 0.4`.
+  - **Merge target (drop hover):** white-purple bg + **2px inset `#8E2EEF`** ring.
+- **Interactions:**
+  - **Select** — click a code to select it (persists until you click another code or empty space).
+    Hold **Ctrl/⌘** to select **multiple**.
+  - **Edit inline** — double-click the label or rule to edit in place; caret lands at the end.
+    **Enter** or **Esc** confirms. Only records a change if the text actually changed.
+  - **Drag to merge** — drag a code by its handle onto **another code**: the target keeps its rule
+    and its label becomes `"<dragged label>, <target label>"`; the dragged code is removed. Nets
+    aren't drop targets; the drag acts on the single grabbed code (ignores multi-selection).
+
+### Footer (pinned)
+
+Bar: padding **12px**, top border `1px #DEE2E6`. Left tools and right actions each gap **8px**.
+
+- **Left (icon-only): Undo / Redo / Copy.** Same icon-only button as the header (**28×28**). Undo and
+  Redo are disabled when there's nothing to undo/redo; both inline edits and merges feed this history.
+- **Right: Cancel / Apply Codebook.** Buttons padding `6px 12px`, **14px**.
+  - **Cancel (secondary):** white bg, border `1px #CED4DA`, text `#495057`, radius **8px**.
+  - **Apply Codebook (primary):** white text, bg `#55198A`, radius **6px**; hover bg `#681EAB`.
 
 ---
 

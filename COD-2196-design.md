@@ -100,7 +100,7 @@ Font throughout: **Figtree, sans-serif**.
 | Hover accent bar (inset) | `#D6B2FF` |
 | **Brand purple** — focus ring, selected bar, merge target | `#8E2EEF` |
 | Primary button bg / hover | `#55198A` / `#681EAB` |
-| Checkbox checked | `#0D6EFD` *(Bootstrap blue — see open questions)* |
+| Checkbox checked | `#0D6EFD` *(Bootstrap blue)* |
 
 ### Dialog shell
 - Overlay: `rgba(0,0,0,0.5)`. Dialog width **85vw**, `max-height: calc(100vh - 110px)`, white bg,

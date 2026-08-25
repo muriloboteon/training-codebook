@@ -3,7 +3,7 @@
 > **For:** [dev name]
 > **From:** Murilo Boteon (Design)
 > **Prototype repo:** https://github.com/muriloboteon/training-codebook
-> **Live prototype:** [Vercel URL]
+> **Live prototype:** https://training-codebook.vercel.app/
 > **Jira ticket:** COD-2196
 
 ---

@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { ArrowBendUpRight, LinkBreak, ListChecks, Columns, MagicWand } from '@phosphor-icons/react';
 import { color, font, radius, space } from '../tokens';
 import TrainCodebookModal from './TrainCodebookModal';
+import RecreateCodebookModal from './RecreateCodebookModal';
+import GenerateRulesProcessingModal from './GenerateRulesProcessingModal';
+import AccountCodebookRulesModal from './AccountCodebookRulesModal';
 
 interface Codebook {
     id: string;
@@ -52,7 +55,7 @@ const codebooksData: Codebook[] = [
 ];
 
 // Row Action Icons (visible on hover) — redirect, delete, checklist, columns
-function RowActionIcons({ isVisible, onTrain }: { isVisible: boolean; onTrain: () => void }) {
+function RowActionIcons({ isVisible, onTrain, onRecreate }: { isVisible: boolean; onTrain: () => void; onRecreate: () => void }) {
     const iconButtonStyle: React.CSSProperties = {
         background: "none",
         border: "none",
@@ -158,6 +161,24 @@ function RowActionIcons({ isVisible, onTrain }: { isVisible: boolean; onTrain: (
             >
                 <MagicWand size={18} weight="bold" color={color.brand} />
             </button>
+
+            {/* Recreate Codebook — teal MagicWand. Duplicates the Train Codebook
+                action, distinguished only by color; opens RecreateCodebookModal. */}
+            <button
+                type="button"
+                aria-label="Recreate Codebook"
+                title="Recreate Codebook"
+                style={iconButtonStyle}
+                onClick={(e) => { e.stopPropagation(); onRecreate(); }}
+                onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.backgroundColor = color.tealSoft;
+                }}
+                onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.backgroundColor = "transparent";
+                }}
+            >
+                <MagicWand size={18} weight="bold" color={color.teal} />
+            </button>
         </div>
     );
 }
@@ -182,10 +203,26 @@ function ReadOnlyCheckbox({ checked }: { checked: boolean }) {
     );
 }
 
-function CoderCodebooksTable({ searchQuery = '' }: { searchQuery?: string }) {
+function CoderCodebooksTable({
+    searchQuery = '',
+    onCreateAICodebook,
+}: {
+    searchQuery?: string;
+    /** Cria um registro no AI Coder a partir do nome do codebook de origem. O pai
+     *  adiciona o sufixo: " - AI" por padrão, ou " – AI trained" quando o codebook
+     *  passou pelo Quality Check (options.trained). Disparado ao concluir. */
+    onCreateAICodebook?: (sourceCodebookName: string, options?: { trained?: boolean }) => void;
+}) {
     const [codebooks] = useState(codebooksData);
     const [hoveredRowId, setHoveredRowId] = useState<string | null>(null);
     const [trainCodebookName, setTrainCodebookName] = useState<string | null>(null);
+    const [recreateCodebookName, setRecreateCodebookName] = useState<string | null>(null);
+    // Fluxo "Generate codebook rules": recreate → processing → rules (validator).
+    // `generatedFromCodebook` guarda o codebook de origem ao longo das etapas de
+    // processing e rules (o recreate é fechado ao iniciar o processing).
+    const [generatedFromCodebook, setGeneratedFromCodebook] = useState<string | null>(null);
+    const [processingOpen, setProcessingOpen] = useState(false);
+    const [rulesOpen, setRulesOpen] = useState(false);
 
     const filteredData = codebooks.filter(cb => {
         const matchesSearch = !searchQuery ||
@@ -291,6 +328,7 @@ function CoderCodebooksTable({ searchQuery = '' }: { searchQuery?: string }) {
                                 <RowActionIcons
                                     isVisible={hoveredRowId === cb.id}
                                     onTrain={() => setTrainCodebookName(cb.codebookId)}
+                                    onRecreate={() => setRecreateCodebookName(cb.codebookId)}
                                 />
                             </td>
                             {/* CODEBOOKS - ID */}
@@ -335,6 +373,45 @@ function CoderCodebooksTable({ searchQuery = '' }: { searchQuery?: string }) {
             isOpen={trainCodebookName !== null}
             onClose={() => setTrainCodebookName(null)}
             sourceCodebookName={trainCodebookName ?? ''}
+        />
+        <RecreateCodebookModal
+            isOpen={recreateCodebookName !== null}
+            onClose={() => setRecreateCodebookName(null)}
+            onGenerate={() => {
+                // Transição: fecha o RecreateCodebookModal e abre o processamento,
+                // preservando o codebook de origem para as próximas etapas.
+                setGeneratedFromCodebook(recreateCodebookName);
+                setRecreateCodebookName(null);
+                setProcessingOpen(true);
+            }}
+            sourceCodebookName={recreateCodebookName ?? ''}
+        />
+        <GenerateRulesProcessingModal
+            isOpen={processingOpen}
+            onComplete={() => {
+                // Processamento concluído: fecha e abre o validator de codes.
+                setProcessingOpen(false);
+                setRulesOpen(true);
+            }}
+            onCancel={() => {
+                setProcessingOpen(false);
+                setGeneratedFromCodebook(null);
+            }}
+        />
+        <AccountCodebookRulesModal
+            isOpen={rulesOpen}
+            onClose={() => {
+                setRulesOpen(false);
+                setGeneratedFromCodebook(null);
+            }}
+            onCreate={(opts) => {
+                // Cria o registro no AI Coder e fecha o validator. Se o codebook
+                // passou pelo Quality Check (opts.trained), o pai o nomeia como
+                // "{origem} – AI trained"; senão mantém "{origem} - AI".
+                if (generatedFromCodebook) onCreateAICodebook?.(generatedFromCodebook, opts);
+                setRulesOpen(false);
+                setGeneratedFromCodebook(null);
+            }}
         />
         </>
     );

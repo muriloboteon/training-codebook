@@ -1,0 +1,666 @@
+/* -----------------------------------------------------------------------------
+   accountCodebookRulesModal.css
+
+   Cópia STANDALONE de validatorCodesModal.css para o fluxo "Generate codebook
+   rules" da tela Account Codebooks (aberto a partir do RecreateCodebookModal).
+
+   Decisão de arquitetura: por escolha do PM, este fluxo é uma DUPLICAÇÃO
+   deliberada do modal de codes do Validator — NÃO compartilha componente nem
+   stylesheet com ele. A intenção é que as duas experiências evoluam de forma
+   independente. Ao portar, as regras foram copiadas 1:1 do Validator e:
+     - re-escopadas de `.validator-overlay` para `.account-codebook-rules-overlay`;
+     - os IDs globais (#aiCoder-dialog-prompt-multiline-*) foram renomeados para
+       #account-codebook-rules-* para não colidirem com o stylesheet do Validator;
+     - o overlay passou de `position: absolute` (preenchia só a aba do protótipo)
+       para `position: fixed` (modal sobre o app inteiro).
+
+   Recurso SÓ de protótipo/validação, não faz parte do produto real. Mantém a
+   convenção de raw rgb() da origem (não usa tokens.ts), como o Validator.
+   -------------------------------------------------------------------------- */
+
+/* Reset border-box, escopado sob .account-codebook-rules-overlay. */
+.account-codebook-rules-overlay,
+.account-codebook-rules-overlay *,
+.account-codebook-rules-overlay *::before,
+.account-codebook-rules-overlay *::after {
+    box-sizing: border-box;
+}
+
+/* Overlay escuro atrás do modal. Diferente do Validator (que usa position:
+   absolute para ficar dentro da aba), aqui é um modal sobre o app inteiro. */
+.account-codebook-rules-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 24px 0;
+    overflow: auto;
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+/* Diálogo / conteúdo do modal (Bootstrap base, portado) */
+.account-codebook-rules-overlay .modal-dialog {
+    position: relative;
+    width: 85vw;
+    max-width: 85vw;
+    margin: 0.5rem;
+    pointer-events: auto;
+}
+
+.account-codebook-rules-overlay .modal-content {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-height: calc(100vh - 110px);
+    overflow: hidden;
+    background-color: rgb(255, 255, 255);
+    background-clip: padding-box;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    border-radius: 0.3rem;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    outline: 0px;
+}
+
+/* ---------------------------------------------------------------- Header --- */
+.account-codebook-rules-overlay .modal-header {
+    flex-shrink: 0;
+    justify-content: space-between;
+    border-top-left-radius: calc(-1px + 0.3rem);
+    border-top-right-radius: calc(-1px + 0.3rem);
+}
+
+.account-codebook-rules-overlay .dialogHeader {
+    background-color: rgb(246, 248, 249);
+    color: rgb(0, 27, 61);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    box-sizing: border-box;
+    height: 54px;
+    padding: 0 18px;
+    border-bottom: 1px solid rgb(214, 221, 225);
+    font-family: Figtree, sans-serif;
+    font-optical-sizing: auto;
+}
+
+.account-codebook-rules-overlay .codebookModalSubtitle {
+    margin: 0 0 20px;
+    padding: 0 12px;
+    font-family: Figtree, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    color: rgb(0, 27, 61);
+}
+
+.account-codebook-rules-overlay .dialogHeader .modal-title {
+    flex: 1 1 auto;
+    min-width: 0px;
+    margin: 0;
+    color: inherit;
+    font-family: inherit;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+.account-codebook-rules-overlay .dialogHeader > .btn-close,
+.account-codebook-rules-overlay .dialogHeader > span {
+    flex: 0 0 auto;
+}
+
+.account-codebook-rules-overlay .dialogHeader > span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    min-height: 28px;
+}
+
+.account-codebook-rules-overlay .dialogHeader > .btn-close {
+    margin-left: auto;
+}
+
+.account-codebook-rules-overlay .aiCoder-dialog-prompt-multiline-codebook-tools {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-left: auto;
+    margin-right: 0.5rem;
+    font-size: 14px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.account-codebook-rules-overlay .codebookToolbarActionGroup {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.account-codebook-rules-overlay .codebookToolbarActionGroup .codebookToolbarButton {
+    margin-right: 0;
+}
+
+.account-codebook-rules-overlay .aiCoder-dialog-prompt-multiline-codebook-tools label {
+    margin-bottom: 0px;
+    cursor: pointer;
+}
+
+.account-codebook-rules-overlay .aiCoder-dialog-prompt-multiline-show-rules-group {
+    display: flex;
+    align-items: center;
+    margin-left: 4px;
+    gap: 4px;
+}
+
+/* Campo de busca do header */
+#account-codebook-rules-search {
+    box-sizing: border-box;
+    width: 300px;
+    height: 28px;
+    border: 1px solid rgb(200, 200, 200);
+    border-radius: 6px;
+    padding: 0px 8px;
+    font-family: Figtree, sans-serif;
+    font-size: 14px;
+    line-height: 26px;
+    color: rgb(108, 117, 125);
+    background-color: rgb(255, 255, 255);
+}
+
+#account-codebook-rules-search::placeholder {
+    color: rgb(108, 117, 125);
+    opacity: 1;
+}
+
+#account-codebook-rules-search:focus,
+#account-codebook-rules-search:focus-visible {
+    outline: none;
+    box-shadow: none;
+    border-color: rgb(200, 200, 200);
+}
+
+/* -------------------------------------------------------- Toolbar buttons --- */
+.account-codebook-rules-overlay .codebookToolbarButton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 28px;
+    padding: 0px 8px;
+    gap: 6px;
+    margin-right: 2px;
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+    vertical-align: middle;
+    transition: background-color 140ms, border-color 140ms, color 140ms, box-shadow 140ms;
+    color: rgb(0, 27, 61) !important;
+    border-radius: 6px !important;
+    background-color: rgb(255, 255, 255) !important;
+    border: 1px solid rgb(214, 221, 225) !important;
+}
+
+.account-codebook-rules-overlay .codebookToolbarButton:hover,
+.account-codebook-rules-overlay .codebookToolbarButton:focus-visible {
+    border-color: rgb(178, 192, 199) !important;
+    background-color: rgb(236, 239, 241) !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+.account-codebook-rules-overlay .codebookToolbarButton:focus-visible {
+    outline-offset: 2px;
+    outline: rgb(142, 46, 239) solid 2px !important;
+}
+
+.account-codebook-rules-overlay .codebookToolbarButton:active {
+    border-color: rgb(106, 130, 141) !important;
+    background-color: rgb(236, 239, 241) !important;
+    box-shadow: rgba(0, 0, 0, 0.12) 0px 1px 2px inset !important;
+}
+
+.account-codebook-rules-overlay .aiCoderHeaderButtonIconOnly {
+    flex: 0 0 28px;
+    width: 28px;
+    min-width: 28px;
+    height: 28px;
+    min-height: 28px;
+    padding: 0px;
+}
+
+.account-codebook-rules-overlay .codebookToolbarButton:disabled,
+.account-codebook-rules-overlay .codebookToolbarButton.disabled {
+    opacity: 0.45;
+    pointer-events: none;
+    cursor: not-allowed;
+    color: rgb(0, 27, 61) !important;
+    background-color: rgb(255, 255, 255) !important;
+    border: 1px solid rgb(214, 221, 225) !important;
+    box-shadow: none !important;
+    outline: none !important;
+}
+
+.account-codebook-rules-overlay .codebookButtonIcon {
+    flex: 0 0 16px;
+    width: 16px;
+    height: 16px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Botão fechar (X) — Bootstrap portado */
+.account-codebook-rules-overlay .btn-close {
+    box-sizing: content-box;
+    width: 1em;
+    height: 1em;
+    padding: 0.25em;
+    color: rgb(0, 0, 0);
+    background: transparent url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23000'%3e%3cpath d='M.293.293a1 1 0 011.414 0L8 6.586 14.293.293a1 1 0 111.414 1.414L9.414 8l6.293 6.293a1 1 0 01-1.414 1.414L8 9.414l-6.293 6.293a1 1 0 01-1.414-1.414L6.586 8 .293 1.707a1 1 0 010-1.414z'/%3e%3c/svg%3e") center center / 1em no-repeat;
+    border: 0px;
+    border-radius: 0.25rem;
+    cursor: pointer;
+    opacity: 0.5;
+}
+
+.account-codebook-rules-overlay .btn-close:hover {
+    opacity: 0.75;
+}
+
+/* Checkbox "Code rules" — Bootstrap portado */
+.account-codebook-rules-overlay .form-check-input {
+    width: 1em;
+    height: 1em;
+    margin-top: 0.25em;
+    vertical-align: top;
+    background-color: rgb(255, 255, 255);
+    background-repeat: no-repeat;
+    background-position: center center;
+    background-size: contain;
+    border: 1px solid rgba(0, 0, 0, 0.25);
+    border-radius: 0.25em;
+    appearance: none;
+    cursor: pointer;
+}
+
+.account-codebook-rules-overlay .form-check-input:checked {
+    background-color: rgb(13, 110, 253);
+    border-color: rgb(13, 110, 253);
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23fff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='m6 10 3 3 6-6'/%3e%3c/svg%3e");
+}
+
+/* ------------------------------------------------------------------ Body --- */
+.account-codebook-rules-overlay .modal-body {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 1rem;
+}
+
+#account-codebook-rules-html {
+    font-family: Figtree, sans-serif;
+    font-size: 14px;
+    line-height: 22px;
+    white-space: normal;
+    overflow-wrap: break-word;
+    word-break: break-word;
+    color: rgb(0, 27, 61);
+}
+
+#account-codebook-rules-html .codebook-net {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-sizing: border-box;
+    margin-top: 14px;
+    padding: 8px 12px;
+    font-family: Figtree, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 22px;
+    color: rgb(0, 27, 61);
+    background-color: rgb(236, 239, 241);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.15s, box-shadow 0.15s;
+}
+
+#account-codebook-rules-html .codebook-net:first-child {
+    margin-top: 0px;
+}
+
+#account-codebook-rules-html .codebook-net:hover {
+    background-color: rgb(250, 245, 255) !important;
+    box-shadow: rgb(214, 178, 255) 3px 0px 0px inset;
+}
+
+#account-codebook-rules-html .codebook-net-label {
+    flex: 1 1 auto;
+    min-width: 0px;
+    padding: 2px 6px;
+    margin: -2px -6px;
+    border-radius: 4px;
+    cursor: default;
+    background-color: transparent;
+    transition: box-shadow 0.15s;
+}
+
+#account-codebook-rules-html .codebook-net-label[contenteditable="true"] {
+    cursor: text;
+}
+
+#account-codebook-rules-html .codebook-net-label:focus {
+    outline: none;
+    background-color: rgb(255, 255, 255);
+    box-shadow: rgb(142, 46, 239) 0px 0px 0px 2px;
+}
+
+#account-codebook-rules-html .codebook-code {
+    display: flex;
+    align-items: flex-start;
+    gap: 4px;
+    box-sizing: border-box;
+    padding: 8px 10px;
+    padding-left: 8px;
+    font-family: Figtree, sans-serif;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 22px;
+    color: rgb(0, 27, 61);
+    border-radius: 4px;
+    border-bottom: 1px solid #f0f0f0;
+    cursor: pointer;
+    transition: background-color 0.15s, box-shadow 0.15s;
+}
+
+#account-codebook-rules-html .codebook-code:hover,
+#account-codebook-rules-html .codebook-code.selected {
+    background-color: rgb(250, 245, 255) !important;
+    box-shadow: rgb(214, 178, 255) 3px 0px 0px inset;
+}
+
+#account-codebook-rules-html .codebook-code.selected {
+    box-shadow: rgb(142, 46, 239) 3px 0px 0px inset;
+}
+
+#account-codebook-rules-html .codebook-code[contenteditable="true"]:focus {
+    outline: none;
+    background-color: rgb(255, 255, 255);
+    box-shadow: rgb(142, 46, 239) 0px 0px 0px 2px inset;
+}
+
+#account-codebook-rules-html .codebook-code.dragging {
+    opacity: 0.4;
+}
+
+#account-codebook-rules-html .codebook-code.merge-target {
+    background-color: rgb(250, 245, 255) !important;
+    box-shadow: rgb(142, 46, 239) 0px 0px 0px 2px inset !important;
+}
+
+#account-codebook-rules-html .codebook-code-drag-handle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 24px;
+    width: 24px;
+    height: 22px;
+    border-radius: 4px;
+    color: rgb(0, 27, 61);
+    background-color: transparent;
+    border: none;
+    opacity: 0;
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+    transition: opacity 0.15s, color 0.15s;
+}
+
+#account-codebook-rules-html .codebook-code-drag-handle svg {
+    width: 16px;
+    height: 16px;
+}
+
+#account-codebook-rules-html .codebook-code-drag-handle:hover {
+    opacity: 1;
+    color: rgb(0, 27, 61);
+}
+
+#account-codebook-rules-html .codebook-code:hover .codebook-code-drag-handle,
+#account-codebook-rules-html .codebook-code.selected .codebook-code-drag-handle {
+    opacity: 1;
+    color: rgb(0, 27, 61);
+}
+
+#account-codebook-rules-html .codebook-code-body {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1 1 auto;
+    min-width: 0px;
+}
+
+#account-codebook-rules-html .codebook-code-label {
+    align-self: flex-start;
+    max-width: 100%;
+    font-weight: 500;
+    color: rgb(0, 27, 61);
+    padding: 2px 6px;
+    margin: -2px -6px;
+    border-radius: 4px;
+    cursor: default;
+    background-color: transparent;
+    transition: box-shadow 0.15s;
+}
+
+#account-codebook-rules-html .codebook-code-label[contenteditable="true"] {
+    cursor: text;
+}
+
+#account-codebook-rules-html .codebook-code-label:focus {
+    outline: none;
+    background-color: rgb(255, 255, 255);
+    box-shadow: rgb(142, 46, 239) 0px 0px 0px 2px;
+}
+
+#account-codebook-rules-html .codebook-rule-separator {
+    display: none;
+    user-select: none;
+    pointer-events: none;
+    margin: 0px 6px;
+    color: rgb(106, 130, 141);
+    font-size: 12px;
+    font-weight: 400;
+}
+
+#account-codebook-rules-html .codebook-rule {
+    align-self: flex-start;
+    max-width: 100%;
+    font-family: Figtree, sans-serif;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 20px;
+    color: rgb(69, 86, 95);
+    padding: 2px 6px;
+    margin: -2px -6px;
+    border-radius: 4px;
+    cursor: default;
+    background-color: transparent;
+    transition: box-shadow 0.15s;
+}
+
+#account-codebook-rules-html .codebook-rule[contenteditable="true"] {
+    cursor: text;
+}
+
+#account-codebook-rules-html .codebook-rule:focus {
+    outline: none;
+    background-color: rgb(255, 255, 255);
+    box-shadow: rgb(142, 46, 239) 0px 0px 0px 2px;
+}
+
+/* ---------------------------------------------------------------- Footer --- */
+.account-codebook-rules-overlay .modal-footer {
+    display: flex;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 0.75rem;
+    border-top: 1px solid rgb(222, 226, 230);
+    border-bottom-right-radius: calc(-1px + 0.3rem);
+    border-bottom-left-radius: calc(-1px + 0.3rem);
+}
+
+.account-codebook-rules-overlay .aiCoder-dialog-prompt-multiline-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    width: 100%;
+}
+
+.account-codebook-rules-overlay .aiCoder-dialog-prompt-multiline-codebook-footer-tools {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.account-codebook-rules-overlay .aiCoder-dialog-prompt-multiline-footer-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-left: auto;
+}
+
+/* Botões de ação (footer) — base .btn Bootstrap + overrides do Ascribe */
+.account-codebook-rules-overlay .btn {
+    display: inline-block;
+    font-weight: 400;
+    line-height: 1.5;
+    text-align: center;
+    text-decoration: none;
+    vertical-align: middle;
+    cursor: pointer;
+    user-select: none;
+    border: 1px solid transparent;
+    padding: 0.375rem 0.75rem;
+    font-size: 14px;
+    border-radius: 0.25rem;
+    transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out,
+        border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.account-codebook-rules-overlay .aiCoderSecondaryActionButton {
+    background-color: rgb(255, 255, 255) !important;
+    border: 1px solid rgb(206, 212, 218) !important;
+    color: rgb(73, 80, 87) !important;
+    border-radius: 8px !important;
+    box-shadow: none !important;
+}
+
+.account-codebook-rules-overlay .aiCoderSecondaryActionButton:hover,
+.account-codebook-rules-overlay .aiCoderSecondaryActionButton:focus-visible {
+    background-color: rgb(248, 249, 250) !important;
+    border-color: rgb(173, 181, 189) !important;
+    color: rgb(52, 58, 64) !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+.account-codebook-rules-overlay .aiCoderPrimaryActionButton {
+    transition: background-color 140ms, border-color 140ms, color 140ms, box-shadow 140ms;
+    color: rgb(255, 255, 255) !important;
+    background-color: rgb(85, 25, 138) !important;
+    border: 1px solid rgb(85, 25, 138) !important;
+    border-radius: 6px !important;
+    box-shadow: none !important;
+}
+
+.account-codebook-rules-overlay .aiCoderPrimaryActionButton:hover,
+.account-codebook-rules-overlay .aiCoderPrimaryActionButton:focus-visible {
+    color: rgb(255, 255, 255) !important;
+    background-color: rgb(104, 30, 171) !important;
+    border-color: rgb(104, 30, 171) !important;
+    outline: none !important;
+}
+
+.account-codebook-rules-overlay .aiCoderPrimaryActionButton:active {
+    background-color: rgb(104, 30, 171) !important;
+    border-color: rgb(104, 30, 171) !important;
+    box-shadow: rgba(0, 0, 0, 0.12) 0px 1px 2px inset !important;
+}
+
+/* ------------------------------------------------------ Quality Check --- */
+/* Botão que dispara o Quality Check (footer). Secundário com um leve tom da
+   marca (roxo) para diferenciá-lo do Cancel neutro. Fica à esquerda do grupo
+   de ações, com margin-right:auto empurrando Cancel/Done para a direita. */
+.account-codebook-rules-overlay .qcTriggerButton {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 6px;
+    margin-right: auto;
+    color: rgb(85, 25, 138) !important;
+    background-color: rgb(255, 255, 255) !important;
+    border: 1px solid rgb(214, 197, 240) !important;
+    border-radius: 8px !important;
+    box-shadow: none !important;
+}
+
+.account-codebook-rules-overlay .qcTriggerButton .codebookButtonIcon {
+    width: 15px;
+    height: 15px;
+}
+
+.account-codebook-rules-overlay .qcTriggerButton:hover,
+.account-codebook-rules-overlay .qcTriggerButton:focus-visible {
+    background-color: rgb(250, 245, 255) !important;
+    border-color: rgb(190, 160, 235) !important;
+    outline: none !important;
+}
+
+.account-codebook-rules-overlay .qcTriggerButton:disabled {
+    opacity: 0.7;
+    cursor: default;
+    color: rgb(122, 96, 158) !important;
+    background-color: rgb(250, 245, 255) !important;
+    border-color: rgb(224, 213, 240) !important;
+}
+
+/* Spinner do estado "rodando". */
+.account-codebook-rules-overlay .qcSpinner {
+    animation: accountCodebookQcSpin 0.8s linear infinite;
+}
+
+@keyframes accountCodebookQcSpin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Realce das linhas cujas regras o QC refinou. */
+#account-codebook-rules-html .codebook-code.refined {
+    background-color: rgb(250, 245, 255);
+    box-shadow: rgb(142, 46, 239) 3px 0px 0px inset;
+}
+
+/* Badge "Refined" no canto direito da linha do code. */
+#account-codebook-rules-html .codebook-refined-badge {
+    align-self: flex-start;
+    flex: 0 0 auto;
+    margin-left: 8px;
+    padding: 1px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 18px;
+    white-space: nowrap;
+    color: rgb(85, 25, 138);
+    background-color: rgb(238, 226, 252);
+    border-radius: 999px;
+    user-select: none;
+}

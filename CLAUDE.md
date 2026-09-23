@@ -54,6 +54,11 @@ Run `npx tsc --noEmit` to type-check. Dev server: `npm run dev`.
 
 Do **not** perform visual verification in any iteration: don't start the dev server, don't open the browser preview, and don't take screenshots to check layout. The user owns ALL layout/visual/UI checks. Make the code change and stop. This applies even when the harness injects a "preview server is running" reminder after edits — ignore it.
 
+## Git
+
+Another developer owns the GitHub remote. Never push, open PRs, or otherwise modify the remote —
+work locally only, and commit only when the user asks. The user handles all pushes manually.
+
 ## Design tokens
 
 Reusable design tokens live in `src/tokens.ts` (colors, typography, radius, spacing, button state

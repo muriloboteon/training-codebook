@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowBendUpRight, Trash } from '@phosphor-icons/react';
 import { color, font, radius, space } from '../tokens';
 
-interface AICodebook {
+export interface AICodebook {
     id: string;
     date: string;
     codes: number;
@@ -74,9 +74,13 @@ function RowActionIcons({ isVisible }: { isVisible: boolean }) {
 interface AICodebooksTableProps {
     searchQuery?: string;
     onSelectionChange?: (count: number) => void;
+    /** Codebooks criados em runtime (ex.: via "Create Codebook" no fluxo de
+     *  geração de regras). Aparecem no topo; se um id colidir com os dados base,
+     *  a versão criada prevalece. */
+    extraCodebooks?: AICodebook[];
 }
 
-function AICodebooksTable({ searchQuery = '', onSelectionChange }: AICodebooksTableProps) {
+function AICodebooksTable({ searchQuery = '', onSelectionChange, extraCodebooks }: AICodebooksTableProps) {
     const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
     const [hoveredRowId, setHoveredRowId] = useState<string | null>(null);
 
@@ -84,15 +88,23 @@ function AICodebooksTable({ searchQuery = '', onSelectionChange }: AICodebooksTa
         onSelectionChange?.(selectedRowId ? 1 : 0);
     }, [selectedRowId, onSelectionChange]);
 
+    // Criados em runtime no topo; dedupe por id (o criado ganha do base).
+    const allData = useMemo(() => {
+        const extras = extraCodebooks ?? [];
+        if (extras.length === 0) return aiCodebooksData;
+        const extraIds = new Set(extras.map((c) => c.id));
+        return [...extras, ...aiCodebooksData.filter((c) => !extraIds.has(c.id))];
+    }, [extraCodebooks]);
+
     const filteredData = useMemo(() => {
         const query = searchQuery.trim().toLowerCase();
-        if (!query) return aiCodebooksData;
-        return aiCodebooksData.filter((codebook) =>
+        if (!query) return allData;
+        return allData.filter((codebook) =>
             codebook.id.toLowerCase().includes(query) ||
             codebook.date.includes(query) ||
             codebook.sourceId.toLowerCase().includes(query)
         );
-    }, [searchQuery]);
+    }, [searchQuery, allData]);
 
     const groupHeaderStyle: React.CSSProperties = {
         padding: `${space.sm} ${space.md}`,

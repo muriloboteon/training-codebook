@@ -10,7 +10,7 @@ import {
 } from '@phosphor-icons/react';
 import { color, font, radius, shadow } from '../tokens';
 import CoderCodebooksTable from './CoderCodebooksTable';
-import AICodebooksTable from './AICodebooksTable';
+import AICodebooksTable, { type AICodebook } from './AICodebooksTable';
 
 // -----------------------------------------------------------------------------
 // AccountCodebooksPage — compõe o protótipo de Account Codebooks:
@@ -34,7 +34,35 @@ function AccountCodebooksPage() {
     const [coderSearchQuery, setCoderSearchQuery] = useState('');
     const [aiCodebooksSearchQuery, setAICodebooksSearchQuery] = useState('');
     const [, setAICodebooksSelectedCount] = useState(0);
+    // Codebooks de IA criados em runtime pelo fluxo "Create Codebook" do Coder.
+    const [createdAICodebooks, setCreatedAICodebooks] = useState<AICodebook[]>([]);
     const actionsMenuRef = useRef<HTMLDivElement>(null);
+
+    // Cria um registro no AI Coder a partir de um codebook de Coder. O id segue a
+    // convenção de nomenclatura: "{origem} - AI" por padrão, ou "{origem} – AI
+    // trained" quando o codebook passou pelo Quality Check (options.trained) — e
+    // nesse caso o registro já entra marcado como trained. Novos itens vão para o
+    // topo (dedupe por id) e a aba muda para AI Coder para o usuário ver o
+    // resultado. Protótipo: nada é persistido, some ao recarregar.
+    const handleCreateAICodebook = (sourceCodebookName: string, options?: { trained?: boolean }) => {
+        const trained = options?.trained ?? false;
+        const pad = (n: number) => String(n).padStart(2, '0');
+        const now = new Date();
+        const date = `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()}`;
+        const newCodebook: AICodebook = {
+            id: trained ? `${sourceCodebookName} – AI trained` : `${sourceCodebookName} - AI`,
+            date,
+            codes: 67,
+            applyRegex: false,
+            applyTraining: true,
+            applyCoding: true,
+            sourceId: sourceCodebookName,
+            trained,
+            gai: true,
+        };
+        setCreatedAICodebooks((prev) => [newCodebook, ...prev.filter((c) => c.id !== newCodebook.id)]);
+        setActiveTab('ai-coder');
+    };
 
     const activeSearchQuery = activeTab === 'coder' ? coderSearchQuery : aiCodebooksSearchQuery;
 
@@ -357,11 +385,13 @@ function AccountCodebooksPage() {
                 {activeTab === 'coder' ? (
                     <CoderCodebooksTable
                         searchQuery={coderSearchQuery}
+                        onCreateAICodebook={handleCreateAICodebook}
                     />
                 ) : (
                     <AICodebooksTable
                         searchQuery={aiCodebooksSearchQuery}
                         onSelectionChange={setAICodebooksSelectedCount}
+                        extraCodebooks={createdAICodebooks}
                     />
                 )}
             </div>

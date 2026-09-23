@@ -378,10 +378,10 @@ function CoderCodebooksTable({
             isOpen={recreateCodebookName !== null}
             onClose={() => setRecreateCodebookName(null)}
             onGenerate={() => {
-                // Transição: fecha o RecreateCodebookModal e abre o processamento,
-                // preservando o codebook de origem para as próximas etapas.
+                // Abre o processamento por cima; o RecreateCodebookModal segue
+                // aberto atrás (visível pelo overlay), preservando o codebook de
+                // origem para as próximas etapas.
                 setGeneratedFromCodebook(recreateCodebookName);
-                setRecreateCodebookName(null);
                 setProcessingOpen(true);
             }}
             sourceCodebookName={recreateCodebookName ?? ''}
@@ -389,11 +389,15 @@ function CoderCodebooksTable({
         <GenerateRulesProcessingModal
             isOpen={processingOpen}
             onComplete={() => {
-                // Processamento concluído: fecha e abre o validator de codes.
+                // Processamento concluído: fecha o processamento e o Recreate e
+                // abre o validator de codes.
                 setProcessingOpen(false);
+                setRecreateCodebookName(null);
                 setRulesOpen(true);
             }}
             onCancel={() => {
+                // Aborta o processamento e revela o RecreateCodebookModal, que
+                // permaneceu aberto atrás.
                 setProcessingOpen(false);
                 setGeneratedFromCodebook(null);
             }}

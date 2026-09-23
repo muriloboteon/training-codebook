@@ -13,6 +13,7 @@ import {
     Warning,
 } from '@phosphor-icons/react';
 import { color, font, radius, space, shadow } from '../tokens';
+import ModalButton from './ModalButton';
 
 // -----------------------------------------------------------------------------
 // TrainCodebookModal — wizard do fluxo "Train a Codebook".
@@ -215,44 +216,7 @@ function TrainCodebookModal({ isOpen, onClose, sourceCodebookName }: TrainCodebo
     const canProceed = step === 'reference' ? selectedStudyIds.length > 0 : true;
     const currentStepIndex = STEP_ORDER.indexOf(step);
 
-    // -----------------------------------------------------------------------
-    // Estilos reutilizados
-    // -----------------------------------------------------------------------
-    const primaryButtonStyle: React.CSSProperties = {
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: space.sm,
-        padding: '8px 16px',
-        backgroundColor: color.brandPrimary,
-        border: 'none',
-        borderRadius: radius.lg,
-        fontSize: font.size.md,
-        fontWeight: font.weight.semibold,
-        color: color.surface,
-        cursor: 'pointer',
-        fontFamily: font.family,
-    };
-
-    const tertiaryButtonStyle: React.CSSProperties = {
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: space.sm,
-        padding: '8px 16px',
-        backgroundColor: color.surface,
-        border: `1px solid ${color.borderControl}`,
-        borderRadius: radius.lg,
-        fontSize: font.size.md,
-        fontWeight: font.weight.semibold,
-        color: color.textDark,
-        cursor: 'pointer',
-        fontFamily: font.family,
-    };
-
-    const disabledButtonStyle: React.CSSProperties = {
-        ...primaryButtonStyle,
-        backgroundColor: color.borderStrong,
-        cursor: 'not-allowed',
-    };
+    // Botões de footer: ver ModalButton (sistema de botões do Figma).
 
     return (
         <div
@@ -415,29 +379,28 @@ function TrainCodebookModal({ isOpen, onClose, sourceCodebookName }: TrainCodebo
                     <div style={{ display: 'flex', gap: space.sm }}>
                         {step === 'reference' && (
                             <>
-                                <button type="button" style={tertiaryButtonStyle} onClick={onClose}>Cancel</button>
-                                <button
-                                    type="button"
-                                    style={canProceed ? primaryButtonStyle : disabledButtonStyle}
+                                <ModalButton variant="tertiary" onClick={onClose}>Cancel</ModalButton>
+                                <ModalButton
+                                    variant="primary"
                                     disabled={!canProceed}
                                     onClick={() => setStep('destination')}
                                 >
                                     Next
                                     <CaretRight size={16} weight="bold" />
-                                </button>
+                                </ModalButton>
                             </>
                         )}
                         {step === 'destination' && (
                             <>
-                                <button type="button" style={tertiaryButtonStyle} onClick={() => setStep('reference')}>Back</button>
-                                <button type="button" style={primaryButtonStyle} onClick={() => setStep('training')}>
+                                <ModalButton variant="tertiary" onClick={() => setStep('reference')}>Back</ModalButton>
+                                <ModalButton variant="primary" onClick={() => setStep('training')}>
                                     <MagicWand size={16} weight="bold" />
                                     Train
-                                </button>
+                                </ModalButton>
                             </>
                         )}
                         {step === 'review' && (
-                            <button type="button" style={primaryButtonStyle} onClick={onClose}>Done</button>
+                            <ModalButton variant="primary" onClick={onClose}>Done</ModalButton>
                         )}
                     </div>
                 </div>

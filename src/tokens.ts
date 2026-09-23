@@ -60,6 +60,7 @@ export const color = {
     brandPrimary: "#55198A", // brand/default (aba ativa, botão primário)
     brandPrimaryHover: "#681EAB",  // button/primary/bg/hover
     brandPrimaryActive: "#4B1679", // button/primary/bg/active
+    brandPrimarySoft: "#FAF5FF",   // button/secondary/bg/hover+active (tint roxo claro)
     brandDeep: "#5B21B6",    // texto roxo escuro
     brandDark: "#36096C",    // link (estado padrão)
     brandStrong: "#57149E",  // link (estado normal após hover)
@@ -97,6 +98,7 @@ export const color = {
     textStrong: "#1F2937",   // títulos
     textDark: "#232A2E",     // texto de botão neutro
     textMuted: "#6B7280",    // cabeçalhos de coluna, texto secundário
+    textSubtle: "#6A828D",   // texto de apoio esmaecido (ex.: "(optional)")
     textFaint: "#9CA3AF",    // texto desabilitado / placeholder
     textPlaceholder: "#889EA8", // placeholder de inputs (input/text/placeholder)
     textHeaderGroup: "#3C4950", // cabeçalho de grupo

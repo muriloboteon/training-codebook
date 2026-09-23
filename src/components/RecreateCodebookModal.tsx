@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
     X,
     MagicWand,
@@ -11,8 +11,10 @@ import {
     CaretUp,
     CaretDown,
     ArrowsDownUp,
+    Info,
 } from '@phosphor-icons/react';
 import { color, font, radius, space, shadow, getStatusColors, ALL_STATUSES, type Status, type StatusColors } from '../tokens';
+import ModalButton from './ModalButton';
 
 // -----------------------------------------------------------------------------
 // RecreateCodebookModal — fluxo "Recreate a Codebook".
@@ -257,11 +259,17 @@ function SortHeader({
     );
 }
 
+// Altura do modal de Instructions. A etapa de processamento
+// (GenerateRulesProcessingModal) importa esta constante para ter exatamente a
+// mesma altura, de modo que a transição não mude o tamanho do modal.
+export const INSTRUCTIONS_MODAL_HEIGHT = 360;
+
 interface RecreateCodebookModalProps {
     isOpen: boolean;
     onClose: () => void;
-    /** Chamado ao confirmar "Generate codebook rules" — o pai fecha este modal
-     *  e abre o AccountCodebookRulesModal (transição, não empilhamento). */
+    /** Chamado ao confirmar "Generate" no modal de Instructions. O pai abre a
+     *  etapa de processamento por cima; este modal permanece aberto atrás,
+     *  visível pelo overlay do processamento. */
     onGenerate: () => void;
     sourceCodebookName: string;
 }
@@ -361,44 +369,7 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
     ).length;
     const canProceed = selectedQuestionIds.length > 0;
 
-    // -----------------------------------------------------------------------
-    // Estilos reutilizados
-    // -----------------------------------------------------------------------
-    const primaryButtonStyle: React.CSSProperties = {
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: space.sm,
-        padding: '8px 16px',
-        backgroundColor: color.brandPrimary,
-        border: 'none',
-        borderRadius: radius.lg,
-        fontSize: font.size.md,
-        fontWeight: font.weight.semibold,
-        color: color.surface,
-        cursor: 'pointer',
-        fontFamily: font.family,
-    };
-
-    const tertiaryButtonStyle: React.CSSProperties = {
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: space.sm,
-        padding: '8px 16px',
-        backgroundColor: color.surface,
-        border: `1px solid ${color.borderControl}`,
-        borderRadius: radius.lg,
-        fontSize: font.size.md,
-        fontWeight: font.weight.semibold,
-        color: color.textDark,
-        cursor: 'pointer',
-        fontFamily: font.family,
-    };
-
-    const disabledButtonStyle: React.CSSProperties = {
-        ...primaryButtonStyle,
-        backgroundColor: color.borderStrong,
-        cursor: 'not-allowed',
-    };
+    // Botões de footer: ver ModalButton (sistema de botões do Figma).
 
     // Master-detail grid — templates de coluna. O grid pai (estudos) e o
     // grid filho (perguntas) têm colunas próprias, alinhadas cada um ao seu
@@ -430,9 +401,11 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
             <div
                 onMouseDown={(e) => e.stopPropagation()}
                 style={{
-                    width: '1120px',
-                    maxWidth: '100%',
-                    height: 'min(760px, 90vh)',
+                    // Mesmas dimensões do modal do Validator (AccountCodebookRulesModal):
+                    // largura 85vw e altura calc(100vh - 110px).
+                    width: '85vw',
+                    maxWidth: '85vw',
+                    height: 'calc(100vh - 110px)',
                     display: 'flex',
                     flexDirection: 'column',
                     backgroundColor: color.surface,
@@ -484,8 +457,14 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
                             {/* Subtítulo + search na mesma linha (search compacto à direita) */}
                             <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: space.lg }}>
                                 <p style={{ margin: 0, flex: 1, minWidth: 0, fontSize: font.size.md, color: color.textDark, lineHeight: '20px' }}>
-                                    Select the studies and questions whose data should be used to recreate this
-                                    codebook. Selecting a study selects all of its questions.
+                                    Select the studies and questions to recreate this codebook as an AI Coder codebook.
+                                    <span
+                                        title={"We'll use your selection to generate the new codebook's codes and rules.\nSelecting a study includes all of its questions."}
+                                        aria-label="We'll use your selection to generate the new codebook's codes and rules. Selecting a study includes all of its questions."
+                                        style={{ display: 'inline-flex', verticalAlign: 'text-bottom', marginLeft: space.xs, cursor: 'help', color: color.textMuted }}
+                                    >
+                                        <Info size={16} weight="bold" />
+                                    </span>
                                 </p>
                                 <div style={{ position: 'relative', width: '280px', flexShrink: 0 }}>
                                     <MagnifyingGlass
@@ -729,16 +708,15 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
                     </div>
 
                     <div style={{ display: 'flex', gap: space.sm }}>
-                        <button type="button" style={tertiaryButtonStyle} onClick={onClose}>Cancel</button>
+                        <ModalButton variant="tertiary" onClick={onClose}>Cancel</ModalButton>
                         {studies.length > 0 && (
-                            <button
-                                type="button"
-                                style={canProceed ? primaryButtonStyle : disabledButtonStyle}
+                            <ModalButton
+                                variant="primary"
                                 disabled={!canProceed}
                                 onClick={() => setShowInstructions(true)}
                             >
                                 Generate codebook rules
-                            </button>
+                            </ModalButton>
                         )}
                     </div>
                 </div>
@@ -769,6 +747,7 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
                     style={{
                         width: '560px',
                         maxWidth: '100%',
+                        height: `${INSTRUCTIONS_MODAL_HEIGHT}px`,
                         display: 'flex',
                         flexDirection: 'column',
                         backgroundColor: color.surface,
@@ -793,9 +772,10 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
                     </div>
 
                     {/* Body */}
-                    <div style={{ padding: space.xl }}>
+                    <div style={{ padding: space.xl, flex: 1, minHeight: 0 }}>
                         <div style={{ fontSize: font.size.md, color: color.textDark, lineHeight: '20px' }}>
-                            Optional — add any guidance to use when recreating <strong>{sourceCodebookName}</strong>.
+                            Tell the AI how to build the codebook: how to split codes, how to group them, and anything to watch for.{' '}
+                            <span style={{ fontStyle: 'italic', color: color.textSubtle }}>(optional)</span>
                         </div>
                         <textarea
                             id="recreate-instructions"
@@ -803,7 +783,7 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
                             onChange={(e) => setInstructions(e.target.value)}
                             rows={5}
                             autoFocus
-                            placeholder="e.g. Keep the existing net structure, merge near-duplicate codes, prefer concise code names…"
+                            placeholder={'Example: "Create separate codes for Helpful staff and Nice staff."'}
                             style={{
                                 width: '100%',
                                 marginTop: space.md,
@@ -826,10 +806,19 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
                     {/* Footer */}
                     <div style={{ padding: `${space.md} ${space.xl}`, borderTop: `1px solid ${color.border}`, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: space.md, backgroundColor: color.surface }}>
                         <div style={{ display: 'flex', gap: space.sm }}>
-                            <button type="button" style={tertiaryButtonStyle} onClick={() => setShowInstructions(false)}>Back</button>
-                            <button type="button" style={primaryButtonStyle} onClick={onGenerate}>
+                            <ModalButton variant="tertiary" onClick={() => setShowInstructions(false)}>Cancel</ModalButton>
+                            <ModalButton
+                                variant="primary"
+                                onClick={() => {
+                                    // O modal de Instructions dá lugar ao de processamento:
+                                    // fecha esta etapa e o RecreateCodebookModal segue aberto
+                                    // atrás (visível pelo overlay do processamento).
+                                    setShowInstructions(false);
+                                    onGenerate();
+                                }}
+                            >
                                 Generate
-                            </button>
+                            </ModalButton>
                         </div>
                     </div>
                 </div>

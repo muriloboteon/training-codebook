@@ -1,6 +1,7 @@
 import { useEffect, useReducer, useRef, useState } from 'react';
 import './accountCodebookRulesModal.css';
 import QualityCheckPanel from './QualityCheckPanel';
+import ModalButton from './ModalButton';
 
 // -----------------------------------------------------------------------------
 // AccountCodebookRulesModal — tela de revisão de codes do fluxo "Generate
@@ -691,13 +692,14 @@ function AccountCodebookRulesModal({ isOpen, onClose, onCreate }: AccountCodeboo
                         </div>
                         <div className="aiCoder-dialog-prompt-multiline-footer-actions">
                             {/* Gatilho do Quality Check. Estado neutro antes do 1º run;
-                                "Running…" durante o loading simulado; "Re-run" depois. */}
-                            <button
-                                type="button"
-                                className="btn qcTriggerButton"
+                                "Running…" durante o loading simulado; "Re-run" depois.
+                                Secondary (outline roxo) do sistema de botões do Figma. */}
+                            <ModalButton
+                                variant="secondary"
                                 onClick={runQualityCheck}
                                 disabled={qcPhase !== 'idle'}
                                 title="Apply the trained codebook to a sample and review the AI coding"
+                                style={{ marginRight: 'auto' }}
                             >
                                 {qcPhase === 'running' ? <IconSpinner /> : <IconShieldCheck />}
                                 {qcPhase === 'running'
@@ -705,20 +707,19 @@ function AccountCodebookRulesModal({ isOpen, onClose, onCreate }: AccountCodeboo
                                     : qcCompleted
                                       ? 'Re-run quality check'
                                       : 'Quality check'}
-                            </button>
-                            <button type="button" className="btn aiCoderSecondaryActionButton" onClick={onClose}>
+                            </ModalButton>
+                            <ModalButton variant="tertiary" onClick={onClose}>
                                 Cancel
-                            </button>
+                            </ModalButton>
                             {/* Conclusão: após o QC vira "Done" e cria o codebook como
                                 "… – AI trained" (trained); sem QC, mantém "Create
                                 Codebook" / "… - AI". */}
-                            <button
-                                type="button"
-                                className="btn aiCoderPrimaryActionButton"
+                            <ModalButton
+                                variant="primary"
                                 onClick={() => onCreate(qcCompleted ? { trained: true } : undefined)}
                             >
                                 {qcCompleted ? 'Done' : 'Create Codebook'}
-                            </button>
+                            </ModalButton>
                         </div>
                     </div>
                 </div>

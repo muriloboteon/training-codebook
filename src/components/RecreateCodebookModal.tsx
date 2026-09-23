@@ -3,13 +3,16 @@ import {
     X,
     MagicWand,
     MagnifyingGlass,
-    CaretRight,
-    CaretDown,
+    Plus,
+    Minus,
     CheckSquare,
     Square,
     MinusSquare,
+    CaretUp,
+    CaretDown,
+    ArrowsDownUp,
 } from '@phosphor-icons/react';
-import { color, font, radius, space, shadow } from '../tokens';
+import { color, font, radius, space, shadow, getStatusColors, ALL_STATUSES, type Status, type StatusColors } from '../tokens';
 
 // -----------------------------------------------------------------------------
 // RecreateCodebookModal — fluxo "Recreate a Codebook".
@@ -27,93 +30,232 @@ import { color, font, radius, space, shadow } from '../tokens';
 //   - Campo "Instructions" (textarea) opcional para orientações adicionais.
 // -----------------------------------------------------------------------------
 
+type QuestionType = 'Open' | 'Other specify';
+
 interface StudyQuestion {
     id: string;
     text: string;
     responses: number;
+    type: QuestionType;
 }
 
 interface Study {
     id: string;
     name: string;
     date: string;
-    /** Nomes dos codebooks presentes neste estudo — usado só para o filtro. */
-    codebookNames: string[];
+    status: Status;
     questions: StudyQuestion[];
 }
 
 // ---------------------------------------------------------------------------
-// Mock data (fictício, apenas para validar a UI). Cada estudo é marcado com os
-// nomes de codebook que contém; o filtro casa com o codebook clicado na tabela.
-// Os nomes batem com os codebookId de CoderCodebooksTable.
+// Mock data (fictício, apenas para validar a UI). Plataforma de research geral
+// (não só NPS): brand tracking, ad/concept testing, pricing, U&A, segmentação,
+// CSAT/CES/NPS, packaging, message testing, employee, etc.
+//
+// As perguntas são geradas por genQuestions() a partir de um pool amplo, para
+// simular estudos reais (5–15 perguntas cada). Tudo determinístico.
 // ---------------------------------------------------------------------------
 
-// Estudos NPSGrpCBK — lista longa (gerada) para exercitar a busca e o scroll.
-const NPS_STUDY_SEEDS: Array<{ name: string; date: string; questions: [string, number][] }> = [
-    { name: 'NPS Q3 2025', date: '12/08/2025', questions: [['Why did you give that score?', 4820], ['What would make you rate us higher?', 3110]] },
-    { name: 'NPS Q2 2025', date: '30/05/2025', questions: [['Why did you give that score?', 5230]] },
-    { name: 'NPS Q1 2025', date: '28/02/2025', questions: [['Why did you give that score?', 4990]] },
-    { name: 'NPS Q4 2024', date: '15/12/2024', questions: [['Why did you give that score?', 5410], ['What is the one thing we should improve?', 3260]] },
-    { name: 'NPS Q3 2024', date: '20/08/2024', questions: [['Why did you give that score?', 4610]] },
-    { name: 'NPS Q2 2024', date: '22/05/2024', questions: [['Why did you give that score?', 4380]] },
-    { name: 'NPS Q1 2024', date: '26/02/2024', questions: [['Why did you give that score?', 4120]] },
-    { name: 'Relationship NPS — EMEA', date: '18/04/2025', questions: [['What is the primary reason for your score?', 2870], ["Anything else you'd like to add?", 1440]] },
-    { name: 'Relationship NPS — Americas', date: '10/10/2024', questions: [['What is the primary reason for your score?', 3120], ["Anything else you'd like to add?", 1580]] },
-    { name: 'Relationship NPS — APAC', date: '02/09/2024', questions: [['What is the primary reason for your score?', 2740]] },
-    { name: 'Relationship NPS — DACH', date: '11/07/2024', questions: [['What is the primary reason for your score?', 1990]] },
-    { name: 'Relationship NPS — LATAM', date: '05/06/2024', questions: [['What is the primary reason for your score?', 1660]] },
-    { name: 'Transactional NPS — Onboarding', date: '19/07/2024', questions: [['How likely are you to recommend us after onboarding?', 1890], ['What stood out during your first weeks?', 1340]] },
-    { name: 'Transactional NPS — Renewal', date: '03/06/2024', questions: [['Why did you renew (or consider leaving)?', 2210]] },
-    { name: 'Transactional NPS — Support', date: '27/04/2024', questions: [['How likely are you to recommend us after that support interaction?', 2530]] },
-    { name: 'Transactional NPS — Checkout', date: '14/03/2024', questions: [['How was your checkout experience?', 1720]] },
-    { name: 'Product NPS — Mobile App', date: '08/02/2024', questions: [['What would make the mobile app better?', 2040]] },
-    { name: 'Product NPS — Web App', date: '21/01/2024', questions: [['What would make the web app better?', 1880]] },
-    { name: 'Product NPS — Enterprise', date: '09/12/2023', questions: [['What would make our platform better for your team?', 940]] },
-    { name: 'Win-back NPS — Churned Accounts', date: '17/11/2023', questions: [['What would bring you back?', 720]] },
+// Pool amplo de perguntas abertas (inglês), cobrindo vários tipos de estudo.
+const QUESTION_POOL: string[] = [
+    // Brand
+    'What comes to mind when you think of this brand?',
+    'How would you describe this brand in your own words?',
+    'What makes this brand different from the others?',
+    'Which brands did you consider before this one?',
+    // Advertising / creative
+    'What do you think is the main message of this ad?',
+    'How did this ad make you feel?',
+    'What did you like or dislike about the ad?',
+    'What would make this ad more relevant to you?',
+    // Concept
+    'What do you like most about this concept?',
+    'What concerns, if any, do you have about this concept?',
+    'How could we improve this concept?',
+    'How likely would you be to buy this, and why?',
+    // Pricing
+    'At what price would this be so expensive you would not consider it?',
+    'At what price would this feel like a great deal?',
+    'How does this price compare to what you expected?',
+    // Product / U&A
+    'How do you currently solve this problem?',
+    'What frustrates you most about the solutions you use today?',
+    'Which features matter most to you, and why?',
+    'Walk us through the last time you used a product like this.',
+    // Satisfaction / loyalty
+    'Why did you give that score?',
+    'What is the one thing we should improve?',
+    'How easy was it to get what you needed?',
+    'What would make you a more loyal customer?',
+    // Packaging / naming / message
+    'What does this packaging communicate to you?',
+    'Which name do you prefer, and why?',
+    'Which message resonates most with you, and why?',
+    // Habits / lifestyle / segmentation
+    'What influences your purchase decisions the most?',
+    'Tell us about a typical day and where this fits in.',
+    // Employee
+    'What do you value most about working here?',
+    'What would make this a better place to work?',
+    // Catch-all
+    'Tell us more about your answer.',
+    'Anything else you would like to share with us?',
 ];
 
-const NPS_STUDIES: Study[] = NPS_STUDY_SEEDS.map((seed, i) => ({
-    id: `nps-${i + 1}`,
+// Pool em francês para o estudo francês.
+const QUESTION_POOL_FR: string[] = [
+    'Pourquoi cette note ?',
+    'Que pouvons-nous améliorer ?',
+    "Qu'avez-vous le plus apprécié ?",
+    'Que faudrait-il changer en priorité ?',
+    'Comment nous décririez-vous à un collègue ?',
+    "Qu'est-ce qui a failli vous freiner ?",
+    'Quelles fonctionnalités vous manquent aujourd’hui ?',
+    'Comment pouvons-nous mieux répondre à vos besoins ?',
+    'Quel a été le point le plus frustrant ?',
+    'Souhaitez-vous ajouter autre chose ?',
+];
+
+// Gera `count` perguntas para um estudo, ciclando pelo pool a partir de `offset`.
+// responses e type são determinísticos (sem aleatoriedade) para estabilidade.
+function genQuestions(studyId: string, count: number, pool: string[], offset: number): StudyQuestion[] {
+    return Array.from({ length: count }, (_, q) => {
+        const text = pool[(offset + q) % pool.length];
+        const responses = 480 + (((offset + q) * 743 + 211) % 92) * 100; // ~480–9.6k
+        // Espalha algumas "Open" no meio das "Other specify".
+        const type: QuestionType = q % 4 === 0 ? 'Open' : 'Other specify';
+        return { id: `${studyId}-q${q + 1}`, text, responses, type };
+    });
+}
+
+// Estudos variados de uma plataforma de research geral. Nomes de curtos a bem
+// longos (para exercitar truncamento) e 5–15 perguntas cada. `fr` usa o pool
+// francês.
+const STUDY_SEEDS: Array<{ name: string; date: string; qCount: number; fr?: boolean }> = [
+    { name: 'Brand Health Tracker 2025 — Global Awareness, Consideration & Equity (Wave 3)', date: '12/08/2025', qCount: 12 },
+    { name: 'Q3 Brand Tracking — Unaided & Aided Awareness', date: '05/08/2025', qCount: 9 },
+    { name: 'Ad Effectiveness Test — Spring Campaign “Made for Mornings” (30s Video, Monadic)', date: '30/05/2025', qCount: 14 },
+    { name: 'Creative Pre-Test — Social Static vs. Motion', date: '18/05/2025', qCount: 7 },
+    { name: 'Concept Test — Next-Gen Subscription Bundle', date: '28/04/2025', qCount: 10 },
+    { name: 'Concept & Claims Test — Plant-Based Line Extension (Sequential Monadic)', date: '02/05/2025', qCount: 13 },
+    { name: 'Pricing Study — Van Westendorp Price Sensitivity Meter', date: '15/04/2025', qCount: 6 },
+    { name: 'Gabor–Granger Pricing — Premium Tier Willingness to Pay', date: '03/04/2025', qCount: 8 },
+    { name: 'Usage & Attitudes (U&A) — Home Coffee Category (Nationally Representative)', date: '22/03/2025', qCount: 15 },
+    { name: 'Customer Satisfaction (CSAT) — Post-Purchase Follow-Up', date: '10/03/2025', qCount: 5 },
+    { name: 'Customer Effort Score (CES) — Support Center Interactions', date: '28/02/2025', qCount: 6 },
+    { name: 'Relationship NPS — EMEA Enterprise & Mid-Market Accounts (Annual Benchmark 2025)', date: '18/04/2025', qCount: 12 },
+    { name: 'Transactional NPS — Onboarding Experience Follow-Up (First 90 Days)', date: '19/02/2025', qCount: 11 },
+    { name: 'Product Feedback — Mobile App v4.0 Beta', date: '08/02/2025', qCount: 9 },
+    { name: 'Feature Prioritization — MaxDiff Across 18 Potential Features', date: '25/01/2025', qCount: 10 },
+    { name: 'Packaging Test — Shelf Impact & Purchase Intent (A/B/C)', date: '15/01/2025', qCount: 8 },
+    { name: 'Naming Test — Candidate Names for a New Energy Drink', date: '20/12/2024', qCount: 7 },
+    { name: 'Message Testing — Value Proposition Resonance Across 5 Territories', date: '10/12/2024', qCount: 11 },
+    { name: 'Market Segmentation — Attitudinal & Needs-Based Clustering Study', date: '28/11/2024', qCount: 15 },
+    { name: 'Market Sizing & Opportunity — SMB Fintech (US, UK & DE)', date: '14/11/2024', qCount: 9 },
+    { name: 'Shopper Journey — Path to Purchase in Grocery Retail', date: '30/10/2024', qCount: 12 },
+    { name: 'Customer Churn Drivers — Cancelled Subscriptions (Last 6 Months)', date: '18/10/2024', qCount: 8 },
+    { name: 'Win-Back Study — Re-Engaging Lapsed Customers', date: '05/10/2024', qCount: 6 },
+    { name: 'Employee Engagement Survey 2025 — Annual Pulse', date: '20/09/2024', qCount: 13 },
+    { name: 'Voice of Customer — Cross-Channel Sentiment (Web, Email & In-App)', date: '02/09/2024', qCount: 10 },
+    { name: 'Advertising Tracking — Category Media & Recall (Quarterly)', date: '20/08/2024', qCount: 7 },
+    { name: 'Customer Sentiment Pulse — Post-Launch Reactions', date: '05/08/2024', qCount: 5 },
+    { name: 'Habits & Occasions — Snacking Throughout the Day', date: '18/07/2024', qCount: 11 },
+    { name: 'Loyalty Program Evaluation — Perceived Value & Redemption Barriers', date: '03/07/2024', qCount: 8 },
+    { name: 'New Product Development — Iterative Concept Screen (Sprint 2)', date: '15/06/2024', qCount: 9 },
+    { name: 'Étude client France 2025 — Enquête de satisfaction relationnelle (tous segments)', date: '05/03/2025', qCount: 8, fr: true },
+];
+
+const STUDIES: Study[] = STUDY_SEEDS.map((seed, i) => ({
+    id: `study-${i + 1}`,
     name: seed.name,
     date: seed.date,
-    // A EMEA aparece também no SentCBK (estudo compartilhado entre codebooks).
-    codebookNames: seed.name === 'Relationship NPS — EMEA' ? ['NPSGrpCBK', 'SentCBK'] : ['NPSGrpCBK'],
-    questions: seed.questions.map(([text, responses], q) => ({ id: `nps-${i + 1}-q${q + 1}`, text, responses })),
+    // Status fictício — varia entre os estudos só para exercitar as tags.
+    status: ALL_STATUSES[i % ALL_STATUSES.length],
+    questions: genQuestions(`study-${i + 1}`, seed.qCount, seed.fr ? QUESTION_POOL_FR : QUESTION_POOL, i * 3),
 }));
 
-const OTHER_STUDIES: Study[] = [
-    {
-        id: 'sent-1',
-        name: 'Customer Sentiment Pulse',
-        date: '22/06/2025',
-        codebookNames: ['SentCBK'],
-        questions: [
-            { id: 'sent-1-q1', text: 'How do you feel about our product?', responses: 1980 },
-            { id: 'sent-1-q2', text: 'Describe your experience in a few words.', responses: 1620 },
-        ],
-    },
-    {
-        id: 'sent-2',
-        name: 'Support Sentiment — H2',
-        date: '14/11/2024',
-        codebookNames: ['SentCBK'],
-        questions: [
-            { id: 'sent-2-q1', text: 'How did that interaction make you feel?', responses: 3450 },
-        ],
-    },
-    {
-        id: 'ex-1',
-        name: 'Étude client France 2025',
-        date: '05/03/2025',
-        codebookNames: ['Exemple plan de code client'],
-        questions: [
-            { id: 'ex-1-q1', text: 'Pourquoi cette note ?', responses: 860 },
-            { id: 'ex-1-q2', text: 'Que pouvons-nous améliorer ?', responses: 720 },
-        ],
-    },
-];
+// ---------------------------------------------------------------------------
+// Ordenação (sort) — chaves por coluna e comparadores.
+// ---------------------------------------------------------------------------
+type SortDir = 'asc' | 'desc';
+type StudySortKey = 'name' | 'status' | 'questions' | 'responses';
+type QuestionSortKey = 'text' | 'type' | 'responses';
 
-const STUDIES: Study[] = [...NPS_STUDIES, ...OTHER_STUDIES];
+const sumResponses = (s: Study) => s.questions.reduce((n, q) => n + q.responses, 0);
+
+function compareStudies(a: Study, b: Study, key: StudySortKey): number {
+    switch (key) {
+        case 'name': return a.name.localeCompare(b.name);
+        case 'status': return ALL_STATUSES.indexOf(a.status) - ALL_STATUSES.indexOf(b.status);
+        case 'questions': return a.questions.length - b.questions.length;
+        case 'responses': return sumResponses(a) - sumResponses(b);
+    }
+}
+
+// "Open" sempre antes de "Other specify"; desempate alfabético pelo texto.
+const TYPE_RANK: Record<QuestionType, number> = { 'Open': 0, 'Other specify': 1 };
+function compareQuestions(a: StudyQuestion, b: StudyQuestion, key: QuestionSortKey): number {
+    switch (key) {
+        case 'text': return a.text.localeCompare(b.text);
+        case 'type': {
+            const r = TYPE_RANK[a.type] - TYPE_RANK[b.type];
+            return r !== 0 ? r : a.text.localeCompare(b.text);
+        }
+        case 'responses': return a.responses - b.responses;
+    }
+}
+
+// Cabeçalho clicável com indicador de ordenação. Colunas não ordenáveis
+// (checkbox/expander) continuam usando <span>.
+function SortHeader({
+    label,
+    align = 'left',
+    active,
+    dir,
+    borderRight = false,
+    onClick,
+}: {
+    label: string;
+    align?: 'left' | 'right';
+    active: boolean;
+    dir: SortDir;
+    borderRight?: boolean;
+    onClick: () => void;
+}) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: align === 'right' ? 'flex-end' : 'flex-start',
+                gap: 4,
+                width: '100%',
+                minWidth: 0,
+                padding: '8px 12px',
+                border: 'none',
+                borderRight: borderRight ? `1px solid ${color.border}` : undefined,
+                background: 'none',
+                cursor: 'pointer',
+                fontFamily: font.family,
+                fontSize: font.size.sm,
+                fontWeight: font.weight.semibold,
+                letterSpacing: '0.05em',
+                textTransform: 'uppercase',
+                color: color.textDark,
+                whiteSpace: 'nowrap',
+            }}
+        >
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
+            {active
+                ? (dir === 'asc'
+                    ? <CaretUp size={12} weight="bold" color={color.textDark} style={{ flexShrink: 0 }} />
+                    : <CaretDown size={12} weight="bold" color={color.textDark} style={{ flexShrink: 0 }} />)
+                : <ArrowsDownUp size={12} color={color.textFaint} style={{ flexShrink: 0 }} />}
+        </button>
+    );
+}
 
 interface RecreateCodebookModalProps {
     isOpen: boolean;
@@ -129,12 +271,16 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
     const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
     const [instructions, setInstructions] = useState('');
     const [query, setQuery] = useState('');
+    // Sort do grid pai: null = ordem natural. Sort do sub-grid: default "type"
+    // asc = Open primeiro, depois alfabético (aplica-se a todos os sub-grids).
+    const [studySort, setStudySort] = useState<{ key: StudySortKey; dir: SortDir } | null>(null);
+    const [questionSort, setQuestionSort] = useState<{ key: QuestionSortKey; dir: SortDir }>({ key: 'type', dir: 'asc' });
+    // Etapa 2: modal de Instructions, aberto ao clicar "Generate codebook rules".
+    const [showInstructions, setShowInstructions] = useState(false);
 
-    // Estudos que contêm um codebook com o mesmo nome do selecionado na tabela.
-    const studies = useMemo(
-        () => STUDIES.filter((s) => s.codebookNames.includes(sourceCodebookName)),
-        [sourceCodebookName],
-    );
+    // Protótipo: todos os codebooks exibem a mesma lista completa de estudos
+    // (research geral). O sourceCodebookName aparece só no cabeçalho.
+    const studies = useMemo(() => STUDIES, []);
 
     // Filtro de busca — casa por nome do estudo ou texto das perguntas.
     const visibleStudies = useMemo(() => {
@@ -145,6 +291,13 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
         );
     }, [studies, query]);
 
+    // Aplica o sort do grid pai (se houver) sobre a lista filtrada.
+    const sortedStudies = useMemo(() => {
+        if (!studySort) return visibleStudies;
+        const sign = studySort.dir === 'asc' ? 1 : -1;
+        return [...visibleStudies].sort((a, b) => sign * compareStudies(a, b, studySort.key));
+    }, [visibleStudies, studySort]);
+
     // Reseta o estado ao (re)abrir. Default: tudo colapsado e nada selecionado;
     // se houver exatamente um estudo, expande-o.
     useEffect(() => {
@@ -153,16 +306,24 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
             setInstructions('');
             setQuery('');
             setExpandedStudyIds(studies.length === 1 ? [studies[0].id] : []);
+            setStudySort(null);
+            setQuestionSort({ key: 'type', dir: 'asc' });
+            setShowInstructions(false);
         }
     }, [isOpen, studies]);
 
     // Fecha com ESC.
     useEffect(() => {
         if (!isOpen) return;
-        const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key !== 'Escape') return;
+            // Na etapa de Instructions, ESC volta para a seleção; senão fecha.
+            if (showInstructions) setShowInstructions(false);
+            else onClose();
+        };
         document.addEventListener('keydown', onKey);
         return () => document.removeEventListener('keydown', onKey);
-    }, [isOpen, onClose]);
+    }, [isOpen, onClose, showInstructions]);
 
     if (!isOpen) return null;
 
@@ -170,6 +331,14 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
 
     const toggleExpanded = (id: string) => {
         setExpandedStudyIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+    };
+
+    // Clique no header: mesma coluna alterna asc/desc; coluna nova começa em asc.
+    const toggleStudySort = (key: StudySortKey) => {
+        setStudySort((prev) => (prev?.key === key ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' }));
+    };
+    const toggleQuestionSort = (key: QuestionSortKey) => {
+        setQuestionSort((prev) => (prev.key === key ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' }));
     };
 
     const toggleQuestion = (qid: string) => {
@@ -232,7 +401,16 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
         cursor: 'not-allowed',
     };
 
+    // Master-detail grid — templates de coluna. O grid pai (estudos) e o
+    // grid filho (perguntas) têm colunas próprias, alinhadas cada um ao seu
+    // header (emula "grid dentro do grid", não a lib real).
+    const parentGridCols = '40px 40px minmax(0, 1fr) 195px 96px 120px'; // +/- · checkbox · Study · Status · Questions · Responses
+    const childGridCols = '40px minmax(0, 1fr) 160px 150px';      // checkbox · Question · Type · Responses
+    const gridLine = `1px solid ${color.border}`;                 // linha de grade (verticais/horizontais)
+    const rowMinHeight = '35px';                                  // altura do header e das linhas
+
     return (
+        <>
         <div
             role="dialog"
             aria-modal="true"
@@ -253,7 +431,7 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
             <div
                 onMouseDown={(e) => e.stopPropagation()}
                 style={{
-                    width: '920px',
+                    width: '1120px',
                     maxWidth: '100%',
                     height: 'min(760px, 90vh)',
                     display: 'flex',
@@ -265,7 +443,7 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
                 }}
             >
                 {/* Header */}
-                <div style={{ padding: `${space.lg} ${space.xl}`, borderBottom: `1px solid ${color.border}` }}>
+                <div style={{ padding: `${space.lg} ${space.xl}`, borderBottom: `1px solid ${color.border}`, backgroundColor: color.surfaceSubtle }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: space.sm }}>
                             {/* MagicWand teal — casa com o ícone de entrada da ação. */}
@@ -343,154 +521,193 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
                                 />
                             </div>
 
-                            {/* Study accordion — scrollable region */}
-                            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: space.sm, marginTop: space.md, paddingRight: space.xs }}>
-                                {visibleStudies.length === 0 && (
-                                    <div style={{ padding: `${space.xl} 0`, textAlign: 'center', fontSize: font.size.md, color: color.textMuted }}>
-                                        No studies match “{query.trim()}”.
+                            {/* Master-detail grid — estilo "data grid" (como a lib de referência):
+                                linhas de grade verticais/horizontais, header cinza, coluna
+                                expander +/- à esquerda e linha aberta destacada. */}
+                            <div style={{ flex: 1, minHeight: 0, marginTop: space.md, border: gridLine, borderRadius: radius.lg, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                                {/* Scroll body — o header fica DENTRO do scroll e "grudado" no
+                                    topo (sticky). Assim header e linhas dividem exatamente a
+                                    mesma largura de coluna, sem o desalinhamento causado pela
+                                    scrollbar (que só afeta a área rolável). */}
+                                <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+                                    {/* Parent header — sticky no topo da área de scroll */}
+                                    <div
+                                        style={{
+                                            display: 'grid',
+                                            gridTemplateColumns: parentGridCols,
+                                            alignItems: 'stretch',
+                                            minHeight: rowMinHeight,
+                                            position: 'sticky',
+                                            top: 0,
+                                            zIndex: 1,
+                                            backgroundColor: color.surfaceSubtle,
+                                            borderBottom: gridLine,
+                                        }}
+                                    >
+                                        <span aria-hidden="true" style={{ borderRight: gridLine }} />{/* expander */}
+                                        <span aria-hidden="true" style={{ borderRight: gridLine }} />{/* checkbox */}
+                                        <SortHeader label="Study ID" borderRight active={studySort?.key === 'name'} dir={studySort?.key === 'name' ? studySort.dir : 'asc'} onClick={() => toggleStudySort('name')} />
+                                        <SortHeader label="Status" borderRight active={studySort?.key === 'status'} dir={studySort?.key === 'status' ? studySort.dir : 'asc'} onClick={() => toggleStudySort('status')} />
+                                        <SortHeader label="Questions" align="right" borderRight active={studySort?.key === 'questions'} dir={studySort?.key === 'questions' ? studySort.dir : 'asc'} onClick={() => toggleStudySort('questions')} />
+                                        <SortHeader label="Responses" align="right" active={studySort?.key === 'responses'} dir={studySort?.key === 'responses' ? studySort.dir : 'asc'} onClick={() => toggleStudySort('responses')} />
                                     </div>
-                                )}
-                                {visibleStudies.map((study) => {
-                                    const qIds = study.questions.map((q) => q.id);
-                                    const selectedCount = qIds.filter((id) => selectedSet.has(id)).length;
-                                    const state: CheckState =
-                                        selectedCount === 0 ? 'unchecked' : selectedCount === qIds.length ? 'checked' : 'indeterminate';
-                                    const expanded = expandedStudyIds.includes(study.id);
-                                    return (
-                                        <div key={study.id} style={{ flexShrink: 0, border: `1px solid ${color.border}`, borderRadius: radius.lg, overflow: 'hidden' }}>
-                                            {/* Study row */}
-                                            <div
-                                                style={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: space.sm,
-                                                    padding: space.md,
-                                                    backgroundColor: state === 'unchecked' ? color.surface : color.brandSoft,
-                                                }}
-                                            >
-                                                <TriStateCheckbox
-                                                    state={state}
-                                                    ariaLabel={`Select all questions in ${study.name}`}
-                                                    onToggle={() => toggleStudy(study)}
-                                                />
-                                                {/* Expand/collapse — name on the left, badge + caret on the right */}
-                                                <button
-                                                    type="button"
-                                                    onClick={() => toggleExpanded(study.id)}
+
+                                    {visibleStudies.length === 0 && (
+                                        <div style={{ padding: `${space.xl} 0`, textAlign: 'center', fontSize: font.size.md, color: color.textMuted }}>
+                                            No studies match “{query.trim()}”.
+                                        </div>
+                                    )}
+                                    {sortedStudies.map((study) => {
+                                        const qIds = study.questions.map((q) => q.id);
+                                        const selectedCount = qIds.filter((id) => selectedSet.has(id)).length;
+                                        const totalResponses = study.questions.reduce((sum, q) => sum + q.responses, 0);
+                                        // Perguntas ordenadas conforme o sort do sub-grid.
+                                        const qSign = questionSort.dir === 'asc' ? 1 : -1;
+                                        const sortedQuestions = [...study.questions].sort((a, b) => qSign * compareQuestions(a, b, questionSort.key));
+                                        const state: CheckState =
+                                            selectedCount === 0 ? 'unchecked' : selectedCount === qIds.length ? 'checked' : 'indeterminate';
+                                        const expanded = expandedStudyIds.includes(study.id);
+                                        // Expandir NÃO muda a cor da linha. A cor reflete só a
+                                        // seleção: branca por padrão, tint quando há perguntas
+                                        // selecionadas. (onDark mantido = false para os ramos abaixo.)
+                                        const onDark = false;
+                                        const rowBg = state === 'unchecked' ? color.surface : color.brandSoft;
+                                        const nameColor = color.textDark;
+                                        const metaColor = color.textDark;
+                                        return (
+                                            <div key={study.id}>
+                                                {/* Parent row (study) */}
+                                                <div
+                                                    role="button"
+                                                    tabIndex={0}
                                                     aria-expanded={expanded}
-                                                    style={{
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: space.sm,
-                                                        flex: 1,
-                                                        minWidth: 0,
-                                                        textAlign: 'left',
-                                                        border: 'none',
-                                                        background: 'none',
-                                                        cursor: 'pointer',
-                                                        padding: 0,
-                                                        fontFamily: font.family,
+                                                    onClick={() => toggleExpanded(study.id)}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleExpanded(study.id); }
                                                     }}
+                                                    style={{
+                                                        display: 'grid',
+                                                        gridTemplateColumns: parentGridCols,
+                                                        alignItems: 'stretch',
+                                                        minHeight: rowMinHeight,
+                                                        cursor: 'pointer',
+                                                        borderBottom: gridLine,
+                                                        backgroundColor: rowBg,
+                                                    }}
+                                                    onMouseEnter={(e) => { if (!onDark && state === 'unchecked') e.currentTarget.style.backgroundColor = color.surfaceHover; }}
+                                                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = rowBg; }}
                                                 >
-                                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                                        <div style={{ fontSize: font.size.md, fontWeight: font.weight.semibold, color: color.textStrong, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    {/* Expander cell — coluna cinza à esquerda com +/- */}
+                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', borderRight: gridLine, backgroundColor: onDark ? 'transparent' : color.surfaceSubtle }}>
+                                                        {expanded
+                                                            ? <Minus size={16} weight="bold" color={onDark ? color.surface : color.textMuted} />
+                                                            : <Plus size={16} weight="bold" color={color.textMuted} />}
+                                                    </div>
+                                                    {/* Checkbox cell — não deve expandir/colapsar */}
+                                                    <div
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', borderRight: gridLine }}
+                                                    >
+                                                        <TriStateCheckbox
+                                                            state={state}
+                                                            tone={onDark ? 'onDark' : 'default'}
+                                                            ariaLabel={`Select all questions in ${study.name}`}
+                                                            onToggle={() => toggleStudy(study)}
+                                                        />
+                                                    </div>
+                                                    {/* Study name + badge de seleção */}
+                                                    <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: space.sm, padding: `${space.sm} ${space.md}`, borderRight: gridLine }}>
+                                                        <span style={{ flex: 1, minWidth: 0, fontSize: font.size.md, fontWeight: font.weight.regular, color: nameColor, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                             {study.name}
-                                                        </div>
-                                                        <div style={{ fontSize: font.size.sm, color: color.textMuted, marginTop: '2px' }}>
-                                                            {study.questions.length} {study.questions.length === 1 ? 'question' : 'questions'} · {study.date}
+                                                        </span>
+                                                    </div>
+                                                    {/* Status tag */}
+                                                    <div style={{ display: 'flex', alignItems: 'center', padding: `${space.xs} ${space.md}`, borderRight: gridLine, minWidth: 0 }}>
+                                                        <StatusTag status={study.status} />
+                                                    </div>
+                                                    {/* Questions count (alinhado à direita) */}
+                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: `${space.sm} ${space.md}`, borderRight: gridLine, fontSize: font.size.md, color: metaColor }}>
+                                                        {study.questions.length}
+                                                    </div>
+                                                    {/* Responses total (alinhado à direita, última coluna) */}
+                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: `${space.sm} ${space.md}`, fontSize: font.size.md, color: metaColor }}>
+                                                        {totalResponses.toLocaleString()}
+                                                    </div>
+                                                </div>
+
+                                                {/* Detail row — sub-grid de perguntas */}
+                                                {expanded && (
+                                                    <div style={{ backgroundColor: color.surface, padding: space.md, paddingLeft: '80px', borderBottom: gridLine }}>
+                                                        <div style={{ border: gridLine, borderRadius: radius.lg, overflow: 'hidden', backgroundColor: color.surface }}>
+                                                            {/* Child header */}
+                                                            <div
+                                                                style={{
+                                                                    display: 'grid',
+                                                                    gridTemplateColumns: childGridCols,
+                                                                    alignItems: 'stretch',
+                                                                    minHeight: rowMinHeight,
+                                                                    backgroundColor: color.surfaceSubtle,
+                                                                    borderBottom: gridLine,
+                                                                }}
+                                                            >
+                                                                <span aria-hidden="true" style={{ borderRight: gridLine }} />{/* checkbox */}
+                                                                <SortHeader label="Question ID" borderRight active={questionSort.key === 'text'} dir={questionSort.key === 'text' ? questionSort.dir : 'asc'} onClick={() => toggleQuestionSort('text')} />
+                                                                <SortHeader label="Type" borderRight active={questionSort.key === 'type'} dir={questionSort.key === 'type' ? questionSort.dir : 'asc'} onClick={() => toggleQuestionSort('type')} />
+                                                                <SortHeader label="Responses" align="right" active={questionSort.key === 'responses'} dir={questionSort.key === 'responses' ? questionSort.dir : 'asc'} onClick={() => toggleQuestionSort('responses')} />
+                                                            </div>
+                                                            {/* Child rows */}
+                                                            {sortedQuestions.map((q, idx) => {
+                                                                const checked = selectedSet.has(q.id);
+                                                                const childBg = checked ? color.brandSoft : color.surface;
+                                                                return (
+                                                                    <div
+                                                                        key={q.id}
+                                                                        role="button"
+                                                                        tabIndex={0}
+                                                                        aria-pressed={checked}
+                                                                        onClick={() => toggleQuestion(q.id)}
+                                                                        onKeyDown={(e) => {
+                                                                            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleQuestion(q.id); }
+                                                                        }}
+                                                                        style={{
+                                                                            display: 'grid',
+                                                                            gridTemplateColumns: childGridCols,
+                                                                            alignItems: 'stretch',
+                                                                            minHeight: rowMinHeight,
+                                                                            cursor: 'pointer',
+                                                                            borderTop: idx === 0 ? 'none' : gridLine,
+                                                                            backgroundColor: childBg,
+                                                                        }}
+                                                                        onMouseEnter={(e) => { if (!checked) e.currentTarget.style.backgroundColor = color.surfaceHover; }}
+                                                                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = childBg; }}
+                                                                    >
+                                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', borderRight: gridLine }}>
+                                                                            {checked
+                                                                                ? <CheckSquare size={20} weight="fill" color={color.brand} />
+                                                                                : <Square size={20} color={color.textFaint} />}
+                                                                        </div>
+                                                                        <div style={{ display: 'flex', alignItems: 'center', minWidth: 0, padding: `${space.sm} ${space.md}`, borderRight: gridLine }}>
+                                                                            <span style={{ minWidth: 0, fontSize: font.size.md, color: color.textDark, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                                                {q.text}
+                                                                            </span>
+                                                                        </div>
+                                                                        {/* Type tag */}
+                                                                        <div style={{ display: 'flex', alignItems: 'center', minWidth: 0, padding: `${space.xs} ${space.md}`, borderRight: gridLine }}>
+                                                                            <TypeTag type={q.type} />
+                                                                        </div>
+                                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: `${space.sm} ${space.md}`, fontSize: font.size.md, color: color.textDark }}>
+                                                                            {q.responses.toLocaleString()}
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })}
                                                         </div>
                                                     </div>
-                                                    {selectedCount > 0 && (
-                                                        <span style={{ flexShrink: 0, fontSize: font.size.sm, fontWeight: font.weight.medium, color: color.brand }}>
-                                                            {selectedCount} selected
-                                                        </span>
-                                                    )}
-                                                    {expanded
-                                                        ? <CaretDown size={16} weight="bold" color={color.textMuted} style={{ flexShrink: 0 }} />
-                                                        : <CaretRight size={16} weight="bold" color={color.textMuted} style={{ flexShrink: 0 }} />}
-                                                </button>
+                                                )}
                                             </div>
-
-                                            {/* Questions */}
-                                            {expanded && (
-                                                <div style={{ borderTop: `1px solid ${color.borderSubtle}` }}>
-                                                    {study.questions.map((q) => {
-                                                        const checked = selectedSet.has(q.id);
-                                                        return (
-                                                            <button
-                                                                key={q.id}
-                                                                type="button"
-                                                                onClick={() => toggleQuestion(q.id)}
-                                                                style={{
-                                                                    display: 'flex',
-                                                                    alignItems: 'center',
-                                                                    gap: space.sm,
-                                                                    width: '100%',
-                                                                    textAlign: 'left',
-                                                                    padding: `${space.sm} ${space.md}`,
-                                                                    paddingLeft: '44px',
-                                                                    border: 'none',
-                                                                    borderTop: `1px solid ${color.borderSubtle}`,
-                                                                    background: 'none',
-                                                                    cursor: 'pointer',
-                                                                    fontFamily: font.family,
-                                                                }}
-                                                                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = color.surfaceHover; }}
-                                                                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
-                                                            >
-                                                                {checked
-                                                                    ? <CheckSquare size={18} weight="fill" color={color.brand} />
-                                                                    : <Square size={18} color={color.textFaint} />}
-                                                                <span style={{ flex: 1, minWidth: 0, fontSize: font.size.md, color: color.text }}>
-                                                                    {q.text}
-                                                                </span>
-                                                                <span style={{ flexShrink: 0, fontSize: font.size.sm, color: color.textMuted }}>
-                                                                    {q.responses.toLocaleString()} responses
-                                                                </span>
-                                                            </button>
-                                                        );
-                                                    })}
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-                            </div>
-
-                            {/* Instructions — fixed below the scrollable list */}
-                            <div style={{ flexShrink: 0, marginTop: space.xl }}>
-                                <label
-                                    htmlFor="recreate-instructions"
-                                    style={{ display: 'block', fontSize: font.size.md, fontWeight: font.weight.semibold, color: color.textStrong }}
-                                >
-                                    Instructions
-                                </label>
-                                <div style={{ fontSize: font.size.sm, color: color.textMuted, marginTop: '2px' }}>
-                                    Optional — add any guidance to use when recreating the codebook.
+                                        );
+                                    })}
                                 </div>
-                                <textarea
-                                    id="recreate-instructions"
-                                    value={instructions}
-                                    onChange={(e) => setInstructions(e.target.value)}
-                                    rows={2}
-                                    placeholder="e.g. Keep the existing net structure, merge near-duplicate codes, prefer concise code names…"
-                                    style={{
-                                        width: '100%',
-                                        marginTop: space.sm,
-                                        padding: space.sm,
-                                        fontSize: font.size.md,
-                                        lineHeight: '20px',
-                                        color: color.text,
-                                        border: `1px solid ${color.borderControl}`,
-                                        borderRadius: radius.md,
-                                        outline: 'none',
-                                        resize: 'vertical',
-                                        fontFamily: font.family,
-                                        boxSizing: 'border-box',
-                                    }}
-                                    onFocus={(e) => { e.currentTarget.style.borderColor = color.brand; }}
-                                    onBlur={(e) => { e.currentTarget.style.borderColor = color.borderControl; }}
-                                />
                             </div>
                         </>
                     )}
@@ -522,7 +739,7 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
                                 type="button"
                                 style={canProceed ? primaryButtonStyle : disabledButtonStyle}
                                 disabled={!canProceed}
-                                onClick={onGenerate}
+                                onClick={() => setShowInstructions(true)}
                             >
                                 <MagicWand size={16} weight="bold" />
                                 Generate codebook rules
@@ -532,6 +749,105 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
                 </div>
             </div>
         </div>
+
+        {/* Etapa 2 — modal de Instructions (abre ao clicar "Generate codebook rules") */}
+        {showInstructions && (
+            <div
+                role="dialog"
+                aria-modal="true"
+                aria-label="Instructions"
+                onMouseDown={() => setShowInstructions(false)}
+                style={{
+                    position: 'fixed',
+                    inset: 0,
+                    backgroundColor: 'rgba(17, 24, 39, 0.55)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 2100,
+                    padding: space.xl,
+                    fontFamily: font.family,
+                }}
+            >
+                <div
+                    onMouseDown={(e) => e.stopPropagation()}
+                    style={{
+                        width: '560px',
+                        maxWidth: '100%',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        backgroundColor: color.surface,
+                        borderRadius: radius.xl,
+                        boxShadow: shadow.modal,
+                        overflow: 'hidden',
+                    }}
+                >
+                    {/* Header */}
+                    <div style={{ padding: `${space.lg} ${space.xl}`, borderBottom: `1px solid ${color.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: space.sm }}>
+                            <MagicWand size={20} weight="bold" color={color.teal} />
+                            <span style={{ fontSize: font.size.xl, fontWeight: font.weight.semibold, color: color.textStrong }}>Instructions</span>
+                        </div>
+                        <button
+                            type="button"
+                            aria-label="Back"
+                            onClick={() => setShowInstructions(false)}
+                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: space.xs, border: 'none', background: 'none', cursor: 'pointer', borderRadius: radius.sm, color: color.textMuted }}
+                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = color.surfaceHover; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                        >
+                            <X size={18} weight="bold" />
+                        </button>
+                    </div>
+
+                    {/* Body */}
+                    <div style={{ padding: space.xl }}>
+                        <div style={{ fontSize: font.size.md, color: color.text, lineHeight: '20px' }}>
+                            Optional — add any guidance to use when recreating <strong>{sourceCodebookName}</strong>.
+                        </div>
+                        <textarea
+                            id="recreate-instructions"
+                            value={instructions}
+                            onChange={(e) => setInstructions(e.target.value)}
+                            rows={5}
+                            autoFocus
+                            placeholder="e.g. Keep the existing net structure, merge near-duplicate codes, prefer concise code names…"
+                            style={{
+                                width: '100%',
+                                marginTop: space.md,
+                                padding: space.sm,
+                                fontSize: font.size.md,
+                                lineHeight: '20px',
+                                color: color.text,
+                                border: `1px solid ${color.borderControl}`,
+                                borderRadius: radius.md,
+                                outline: 'none',
+                                resize: 'vertical',
+                                fontFamily: font.family,
+                                boxSizing: 'border-box',
+                            }}
+                            onFocus={(e) => { e.currentTarget.style.borderColor = color.brand; }}
+                            onBlur={(e) => { e.currentTarget.style.borderColor = color.borderControl; }}
+                        />
+                    </div>
+
+                    {/* Footer */}
+                    <div style={{ padding: `${space.md} ${space.xl}`, borderTop: `1px solid ${color.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: space.md, backgroundColor: color.surfaceSubtle }}>
+                        <div style={{ fontSize: font.size.sm, color: color.textMuted }}>
+                            {`${selectedQuestionIds.length} ${selectedQuestionIds.length === 1 ? 'question' : 'questions'} selected`}
+                        </div>
+                        <div style={{ display: 'flex', gap: space.sm }}>
+                            <button type="button" style={tertiaryButtonStyle} onClick={() => setShowInstructions(false)}>Back</button>
+                            <button type="button" style={primaryButtonStyle} onClick={onGenerate}>
+                                <MagicWand size={16} weight="bold" />
+                                Generate
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )}
+        </>
     );
 }
 
@@ -544,11 +860,16 @@ function TriStateCheckbox({
     state,
     ariaLabel,
     onToggle,
+    tone = 'default',
 }: {
     state: CheckState;
     ariaLabel: string;
     onToggle: () => void;
+    /** 'onDark' = ícone branco, para uso sobre a linha destacada (aberta). */
+    tone?: 'default' | 'onDark';
 }) {
+    const checkColor = tone === 'onDark' ? color.surface : color.brand;
+    const emptyColor = tone === 'onDark' ? color.surface : color.textFaint;
     return (
         <button
             type="button"
@@ -567,11 +888,57 @@ function TriStateCheckbox({
                 cursor: 'pointer',
             }}
         >
-            {state === 'checked' && <CheckSquare size={20} weight="fill" color={color.brand} />}
-            {state === 'indeterminate' && <MinusSquare size={20} weight="fill" color={color.brand} />}
-            {state === 'unchecked' && <Square size={20} color={color.textFaint} />}
+            {state === 'checked' && <CheckSquare size={20} weight="fill" color={checkColor} />}
+            {state === 'indeterminate' && <MinusSquare size={20} weight="fill" color={checkColor} />}
+            {state === 'unchecked' && <Square size={20} color={emptyColor} />}
         </button>
     );
+}
+
+// ---------------------------------------------------------------------------
+// Tag base — chip com dot colorido. Cores vêm de StatusColors (tokens.ts).
+// ---------------------------------------------------------------------------
+function Tag({ label, colors }: { label: string; colors: StatusColors }) {
+    return (
+        <span
+            style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                height: 24,
+                padding: '4px 10px',
+                boxSizing: 'border-box',
+                borderRadius: radius.lg,
+                fontSize: font.size.md,
+                fontWeight: font.weight.semibold,
+                lineHeight: '16px',
+                letterSpacing: '0.24px',
+                whiteSpace: 'nowrap',
+                border: `1px solid ${colors.border}`,
+                background: colors.bg,
+                color: colors.text,
+                fontFamily: font.family,
+            }}
+        >
+            <span style={{ width: 8, height: 8, flexShrink: 0, borderRadius: radius.full, background: colors.dot }} />
+            {label}
+        </span>
+    );
+}
+
+// Tag de status do estudo (grid pai).
+function StatusTag({ status }: { status: Status }) {
+    return <Tag label={status} colors={getStatusColors(status)} />;
+}
+
+// Tag de tipo da pergunta (sub-grid). Reaproveita o estilo de status pedido:
+// Open → "In Progress"; Other specify → "Under Construction".
+const TYPE_TAG_STATUS: Record<QuestionType, Status> = {
+    'Open': 'In Progress',
+    'Other specify': 'Under Construction',
+};
+function TypeTag({ type }: { type: QuestionType }) {
+    return <Tag label={type} colors={getStatusColors(TYPE_TAG_STATUS[type])} />;
 }
 
 // ---------------------------------------------------------------------------

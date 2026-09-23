@@ -152,13 +152,15 @@ export interface StatusColors {
     text: string;
 }
 
+// Paleta das tags de status. Fundo próprio por status; borda e indicador (dot)
+// compartilham a mesma cor; o texto é sempre text/primary (#232A2E).
 export const statusPalette: Record<Status, StatusColors> = {
-    'Under Construction': { bg: "#F6F9FF", dot: "#2563EB", border: "#BBCFFB", text: "#1D4ED8" },
-    'In Progress':        { bg: "#FBF9FF", dot: "#7C3AED", border: "#D9C9FF", text: "#5B21B6" },
-    'On Hold':            { bg: "#FFF6F6", dot: "#DC2626", border: "#F5B5B8", text: "#991B1B" },
-    'Review in Progress': { bg: "#FFF8F2", dot: "#EA580C", border: "#FBC58A", text: "#9A3412" },
-    'Completed':          { bg: "#F6FBF6", dot: "#16A34A", border: "#BFE5C2", text: "#166534" },
-    'Archived':           { bg: "#F8F9FB", dot: "#64748B", border: "#C7CCD6", text: "#334155" },
+    'Under Construction': { bg: "#E5EEFF", dot: "#5A6EFF", border: "#5A6EFF", text: "#232A2E" },
+    'In Progress':        { bg: "#F5F0FF", dot: "#9B33DB", border: "#9B33DB", text: "#232A2E" },
+    'On Hold':            { bg: "#FEEFF1", dot: "#D63D54", border: "#D63D54", text: "#232A2E" },
+    'Review in Progress': { bg: "#FFFCF2", dot: "#EC6B09", border: "#EC6B09", text: "#232A2E" },
+    'Completed':          { bg: "#EBF9F3", dot: "#008563", border: "#008563", text: "#232A2E" },
+    'Archived':           { bg: "#EEF2F6", dot: "#707D89", border: "#707D89", text: "#232A2E" },
 };
 
 export const getStatusColors = (status: Status): StatusColors =>

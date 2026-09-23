@@ -286,9 +286,8 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
     const visibleStudies = useMemo(() => {
         const q = query.trim().toLowerCase();
         if (!q) return studies;
-        return studies.filter(
-            (s) => s.name.toLowerCase().includes(q) || s.questions.some((qq) => qq.text.toLowerCase().includes(q)),
-        );
+        // Busca apenas no nível de studies (pelo nome), não nas perguntas.
+        return studies.filter((s) => s.name.toLowerCase().includes(q));
     }, [studies, query]);
 
     // Aplica o sort do grid pai (se houver) sobre a lista filtrada.
@@ -445,13 +444,9 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
                 {/* Header */}
                 <div style={{ padding: `${space.lg} ${space.xl}`, borderBottom: `1px solid ${color.border}`, backgroundColor: color.surfaceSubtle }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: space.sm }}>
-                            {/* MagicWand teal — casa com o ícone de entrada da ação. */}
-                            <MagicWand size={20} weight="bold" color={color.teal} />
-                            <span style={{ fontSize: font.size.xl, fontWeight: font.weight.semibold, color: color.textStrong }}>
-                                Recreate Codebook
-                            </span>
-                        </div>
+                        <span style={{ fontSize: font.size.xl, fontWeight: font.weight.semibold, color: color.textDark }}>
+                            Recreate Codebook
+                        </span>
                         <button
                             type="button"
                             aria-label="Close"
@@ -473,52 +468,53 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
                             <X size={18} weight="bold" />
                         </button>
                     </div>
-                    <div style={{ marginTop: space.xs, fontSize: font.size.md, color: color.textMuted }}>
-                        Codebook: <strong style={{ color: color.text }}>{sourceCodebookName}</strong>
-                    </div>
                 </div>
 
                 {/* Body — fixed flex column; only the study list scrolls. */}
                 <div style={{ padding: space.xl, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                    <div style={{ flexShrink: 0, marginBottom: space.md, fontSize: font.size.md, color: color.textDark }}>
+                        Codebook: <strong style={{ color: color.textDark }}>{sourceCodebookName}</strong>
+                    </div>
                     {studies.length === 0 ? (
                         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <EmptyState codebookName={sourceCodebookName} />
                         </div>
                     ) : (
                         <>
-                            <p style={{ margin: 0, flexShrink: 0, fontSize: font.size.md, color: color.text, lineHeight: '20px' }}>
-                                Select the studies and questions whose data should be used to recreate{' '}
-                                <strong>{sourceCodebookName}</strong>. Selecting a study selects all of its questions.
-                            </p>
-
-                            {/* Search — fixed above the scrollable list */}
-                            <div style={{ flexShrink: 0, position: 'relative', marginTop: space.md }}>
-                                <MagnifyingGlass
-                                    size={16}
-                                    weight="bold"
-                                    color={color.textMuted}
-                                    style={{ position: 'absolute', left: space.sm, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}
-                                />
-                                <input
-                                    type="text"
-                                    value={query}
-                                    onChange={(e) => setQuery(e.target.value)}
-                                    placeholder="Search studies or questions…"
-                                    aria-label="Search studies"
-                                    style={{
-                                        width: '100%',
-                                        padding: '8px 12px 8px 32px',
-                                        fontSize: font.size.md,
-                                        color: color.text,
-                                        border: `1px solid ${color.borderControl}`,
-                                        borderRadius: radius.md,
-                                        outline: 'none',
-                                        fontFamily: font.family,
-                                        boxSizing: 'border-box',
-                                    }}
-                                    onFocus={(e) => { e.currentTarget.style.borderColor = color.brand; }}
-                                    onBlur={(e) => { e.currentTarget.style.borderColor = color.borderControl; }}
-                                />
+                            {/* Subtítulo + search na mesma linha (search compacto à direita) */}
+                            <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: space.lg }}>
+                                <p style={{ margin: 0, flex: 1, minWidth: 0, fontSize: font.size.md, color: color.textDark, lineHeight: '20px' }}>
+                                    Select the studies and questions whose data should be used to recreate this
+                                    codebook. Selecting a study selects all of its questions.
+                                </p>
+                                <div style={{ position: 'relative', width: '280px', flexShrink: 0 }}>
+                                    <MagnifyingGlass
+                                        size={16}
+                                        weight="bold"
+                                        color={color.textMuted}
+                                        style={{ position: 'absolute', left: space.sm, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}
+                                    />
+                                    <input
+                                        type="text"
+                                        value={query}
+                                        onChange={(e) => setQuery(e.target.value)}
+                                        placeholder="Search studies…"
+                                        aria-label="Search studies"
+                                        style={{
+                                            width: '100%',
+                                            padding: '8px 12px 8px 32px',
+                                            fontSize: font.size.md,
+                                            color: color.textDark,
+                                            border: `1px solid ${color.borderControl}`,
+                                            borderRadius: radius.md,
+                                            outline: 'none',
+                                            fontFamily: font.family,
+                                            boxSizing: 'border-box',
+                                        }}
+                                        onFocus={(e) => { e.currentTarget.style.borderColor = color.brand; }}
+                                        onBlur={(e) => { e.currentTarget.style.borderColor = color.borderControl; }}
+                                    />
+                                </div>
                             </div>
 
                             {/* Master-detail grid — estilo "data grid" (como a lib de referência):
@@ -553,7 +549,7 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
                                     </div>
 
                                     {visibleStudies.length === 0 && (
-                                        <div style={{ padding: `${space.xl} 0`, textAlign: 'center', fontSize: font.size.md, color: color.textMuted }}>
+                                        <div style={{ padding: `${space.xl} 0`, textAlign: 'center', fontSize: font.size.md, color: color.textDark }}>
                                             No studies match “{query.trim()}”.
                                         </div>
                                     )}
@@ -722,10 +718,10 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
                         alignItems: 'center',
                         justifyContent: 'space-between',
                         gap: space.md,
-                        backgroundColor: color.surfaceSubtle,
+                        backgroundColor: color.surface,
                     }}
                 >
-                    <div style={{ fontSize: font.size.sm, color: color.textMuted }}>
+                    <div style={{ fontSize: font.size.md, color: color.textDark }}>
                         {studies.length > 0 && (
                             `${selectedQuestionIds.length} ${selectedQuestionIds.length === 1 ? 'question' : 'questions'} selected` +
                             (selectedStudyCount > 0 ? ` across ${selectedStudyCount} ${selectedStudyCount === 1 ? 'study' : 'studies'}` : '')
@@ -741,7 +737,6 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
                                 disabled={!canProceed}
                                 onClick={() => setShowInstructions(true)}
                             >
-                                <MagicWand size={16} weight="bold" />
                                 Generate codebook rules
                             </button>
                         )}
@@ -783,11 +778,8 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
                     }}
                 >
                     {/* Header */}
-                    <div style={{ padding: `${space.lg} ${space.xl}`, borderBottom: `1px solid ${color.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: space.sm }}>
-                            <MagicWand size={20} weight="bold" color={color.teal} />
-                            <span style={{ fontSize: font.size.xl, fontWeight: font.weight.semibold, color: color.textStrong }}>Instructions</span>
-                        </div>
+                    <div style={{ padding: `${space.lg} ${space.xl}`, borderBottom: `1px solid ${color.border}`, backgroundColor: color.surfaceSubtle, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: font.size.xl, fontWeight: font.weight.semibold, color: color.textDark }}>Instructions</span>
                         <button
                             type="button"
                             aria-label="Back"
@@ -802,7 +794,7 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
 
                     {/* Body */}
                     <div style={{ padding: space.xl }}>
-                        <div style={{ fontSize: font.size.md, color: color.text, lineHeight: '20px' }}>
+                        <div style={{ fontSize: font.size.md, color: color.textDark, lineHeight: '20px' }}>
                             Optional — add any guidance to use when recreating <strong>{sourceCodebookName}</strong>.
                         </div>
                         <textarea
@@ -818,7 +810,7 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
                                 padding: space.sm,
                                 fontSize: font.size.md,
                                 lineHeight: '20px',
-                                color: color.text,
+                                color: color.textDark,
                                 border: `1px solid ${color.borderControl}`,
                                 borderRadius: radius.md,
                                 outline: 'none',
@@ -832,14 +824,10 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
                     </div>
 
                     {/* Footer */}
-                    <div style={{ padding: `${space.md} ${space.xl}`, borderTop: `1px solid ${color.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: space.md, backgroundColor: color.surfaceSubtle }}>
-                        <div style={{ fontSize: font.size.sm, color: color.textMuted }}>
-                            {`${selectedQuestionIds.length} ${selectedQuestionIds.length === 1 ? 'question' : 'questions'} selected`}
-                        </div>
+                    <div style={{ padding: `${space.md} ${space.xl}`, borderTop: `1px solid ${color.border}`, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: space.md, backgroundColor: color.surface }}>
                         <div style={{ display: 'flex', gap: space.sm }}>
                             <button type="button" style={tertiaryButtonStyle} onClick={() => setShowInstructions(false)}>Back</button>
                             <button type="button" style={primaryButtonStyle} onClick={onGenerate}>
-                                <MagicWand size={16} weight="bold" />
                                 Generate
                             </button>
                         </div>
@@ -961,11 +949,11 @@ function EmptyState({ codebookName }: { codebookName: string }) {
             >
                 <MagicWand size={24} weight="bold" color={color.textFaint} />
             </div>
-            <div style={{ fontSize: font.size.lg, fontWeight: font.weight.semibold, color: color.textStrong }}>
+            <div style={{ fontSize: font.size.lg, fontWeight: font.weight.semibold, color: color.textDark }}>
                 No studies available
             </div>
-            <div style={{ fontSize: font.size.md, color: color.textMuted, marginTop: space.xs, lineHeight: '20px' }}>
-                No studies contain a codebook named <strong style={{ color: color.text }}>{codebookName}</strong>.
+            <div style={{ fontSize: font.size.md, color: color.textDark, marginTop: space.xs, lineHeight: '20px' }}>
+                No studies contain a codebook named <strong style={{ color: color.textDark }}>{codebookName}</strong>.
             </div>
         </div>
     );

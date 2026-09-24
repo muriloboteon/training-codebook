@@ -37,10 +37,13 @@
     font-optical-sizing: auto;
 }
 
+/* Mesma caixa dos outros modais do fluxo (accountCodebookRulesModal.css):
+   85vw de largura e altura fixa calc(100vh - 110px), para o QC ter exatamente
+   o mesmo footprint do modal pai onde é aberto. */
 .quality-check-overlay .qc-dialog {
     position: relative;
-    width: 70vw;
-    max-width: 900px;
+    width: 85vw;
+    max-width: 85vw;
     margin: 0.5rem;
     pointer-events: auto;
 }
@@ -50,7 +53,7 @@
     display: flex;
     flex-direction: column;
     width: 100%;
-    max-height: calc(100vh - 110px);
+    height: calc(100vh - 110px);
     overflow: hidden;
     background-color: rgb(255, 255, 255);
     border: 1px solid rgba(0, 0, 0, 0.2);
@@ -89,6 +92,35 @@
     color: rgb(69, 86, 95);
     font-size: 13px;
     line-height: 1.5;
+}
+
+/* PROTÓTIPO: seletor de versões do card (segmented control). Removível. */
+.quality-check-overlay .qc-layout-toggle {
+    display: inline-flex;
+    flex: 0 0 auto;
+    gap: 2px;
+    padding: 2px;
+    margin-top: 1px;
+    background-color: rgb(237, 241, 243);
+    border-radius: 7px;
+}
+
+.quality-check-overlay .qc-layout-toggle button {
+    padding: 3px 10px;
+    font-family: Figtree, sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    color: rgb(69, 86, 95);
+    background-color: transparent;
+    border: 0;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.quality-check-overlay .qc-layout-toggle button.is-active {
+    color: rgb(35, 42, 46);
+    background-color: rgb(255, 255, 255);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
 }
 
 .quality-check-overlay .qc-btn-close {
@@ -138,27 +170,29 @@
     gap: 8px;
 }
 
-/* Item do sample: resposta + codificação | veredito do juiz | ações. */
+/* Card da resposta: verbatim + chips de code no topo, ações à direita, e o
+   campo de motivo abrindo em largura total quando rejeitada. */
 .quality-check-overlay .qc-item {
-    display: grid;
-    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto;
-    gap: 14px;
-    align-items: start;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
     padding: 12px 14px;
     border: 1px solid rgb(224, 230, 234);
-    border-left: 3px solid rgb(224, 230, 234);
     border-radius: 8px;
     background-color: rgb(255, 255, 255);
     transition: border-color 0.15s, background-color 0.15s;
 }
 
-.quality-check-overlay .qc-item--approve {
-    border-left-color: rgb(34, 153, 84);
+/* Linha superior: verbatim + codes (esquerda) | ações (direita). */
+.quality-check-overlay .qc-item-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
 }
 
-.quality-check-overlay .qc-item--reject {
-    border-left-color: rgb(200, 55, 55);
-    background-color: rgb(253, 248, 248);
+.quality-check-overlay .qc-item-main {
+    flex: 1 1 auto;
+    min-width: 0;
 }
 
 .quality-check-overlay .qc-item-answer {
@@ -167,155 +201,257 @@
     gap: 3px;
 }
 
-.quality-check-overlay .qc-respondent {
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    color: rgb(106, 130, 141);
-}
-
 .quality-check-overlay .qc-answer-text {
+    display: block;
     font-size: 14px;
-    line-height: 20px;
+    line-height: 21px;
+    font-optical-sizing: auto;
+    font-weight: 400;
+    font-style: normal;
     color: rgb(0, 27, 61);
 }
 
 .quality-check-overlay .qc-item-coding {
-    margin-top: 8px;
+    margin-top: 10px;
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 5px;
 }
 
 .quality-check-overlay .qc-coded-as {
-    font-size: 11px;
-    font-weight: 600;
+    font-size: 12px;
+    font-weight: 500;
     letter-spacing: 0.02em;
     color: rgb(106, 130, 141);
 }
 
-.quality-check-overlay .qc-code-chip {
-    font-size: 13px;
-    line-height: 18px;
-}
-
-.quality-check-overlay .qc-code-net {
-    color: rgb(69, 86, 95);
-}
-
-.quality-check-overlay .qc-code-sep {
-    color: rgb(178, 192, 199);
-}
-
-.quality-check-overlay .qc-code-label {
-    font-weight: 600;
-    color: rgb(0, 27, 61);
-}
-
-/* Bloco do veredito do LLM-as-judge. */
-.quality-check-overlay .qc-item-judge {
+/* Linha de chips — uma resposta pode ter vários codes. */
+.quality-check-overlay .qc-chips {
     display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+/* Chip como o codes modal do Ascribe: caixa branca sem borda esquerda,
+   arredondada só à direita, com a barra roxa da marca à esquerda (pseudo-
+   elemento, já que o próprio chip não tem border-left). */
+.quality-check-overlay .qc-code-chip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    background-color: rgb(255, 255, 255);
+    border: 1px solid rgb(214, 221, 225);
+    border-left: none;
+    border-radius: 0 4px 4px 0;
+    font-family: Figtree, sans-serif;
+    font-weight: 500;
+    font-size: 12px;
+    line-height: 18px;
+    color: rgb(33, 37, 41);
+    text-align: center;
+    box-sizing: border-box;
+}
+
+/* Barra roxa flush à esquerda, altura total do chip. */
+.quality-check-overlay .qc-code-chip::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 3px;
+    background-color: rgb(142, 46, 239);
+    border-radius: 4px 0 0 4px;
+}
+
+/* Chip "Uncoded Idea": a AI não codificou a resposta — barra vermelha. */
+.quality-check-overlay .qc-code-chip--uncoded::before {
+    background-color: rgb(200, 55, 55);
+}
+
+/* Ações approve/reject. */
+.quality-check-overlay .qc-item-actions {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+/* === Versão BOTTOM: Applied codes e decisão na mesma linha (rodapé). === */
+.quality-check-overlay .qc-list--bottom .qc-item-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+}
+
+.quality-check-overlay .qc-list--bottom .qc-item-footer {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.quality-check-overlay .qc-list--bottom .qc-item-footer .qc-item-coding {
+    margin-top: 0;
+}
+
+/* Label acima dos botões — mesmo estilo do "Applied codes". */
+.quality-check-overlay .qc-actions-label {
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    color: rgb(106, 130, 141);
+}
+
+/* === Versão TOP RIGHT: decisão no canto superior direito, divisória vertical. */
+.quality-check-overlay .qc-list--rail .qc-item-row {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 16px;
+}
+
+.quality-check-overlay .qc-list--rail .qc-item-actions {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+/* === Versão STACKED: decisão empilhada abaixo do Applied codes, à esquerda. */
+.quality-check-overlay .qc-list--stack .qc-item-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+}
+
+.quality-check-overlay .qc-list--stack .qc-item-actions {
     flex-direction: column;
     align-items: flex-start;
     gap: 6px;
 }
 
-.quality-check-overlay .qc-confidence {
-    display: inline-flex;
-    align-items: center;
-    padding: 1px 8px;
-    font-size: 12px;
-    font-weight: 700;
-    border-radius: 999px;
-}
 
-.quality-check-overlay .qc-confidence--high {
-    color: rgb(21, 87, 51);
-    background-color: rgb(223, 245, 231);
-}
-
-.quality-check-overlay .qc-confidence--medium {
-    color: rgb(120, 78, 4);
-    background-color: rgb(252, 243, 214);
-}
-
-.quality-check-overlay .qc-confidence--low {
-    color: rgb(140, 32, 32);
-    background-color: rgb(250, 226, 226);
-}
-
-.quality-check-overlay .qc-verdict {
-    font-size: 12px;
-    font-weight: 600;
-}
-
-.quality-check-overlay .qc-verdict--agree {
-    color: rgb(34, 153, 84);
-}
-
-.quality-check-overlay .qc-verdict--flag {
-    color: rgb(200, 55, 55);
-}
-
-.quality-check-overlay .qc-rationale {
-    margin: 0;
-    font-size: 12px;
-    line-height: 17px;
-    color: rgb(69, 86, 95);
-}
-
-/* Ações approve/reject. */
-.quality-check-overlay .qc-item-actions {
+/* Campo de motivo (opcional), aberto sob a resposta rejeitada. Painel cinza
+   claro, com label e textarea; sem botão nem texto auxiliar. */
+.quality-check-overlay .qc-reason {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
+    padding: 14px;
+    background-color: rgb(247, 249, 250);
+    border: 1px solid rgb(230, 234, 237);
+    border-radius: 8px;
 }
 
-.quality-check-overlay .qc-decision {
-    display: inline-flex;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 6px;
-    min-width: 104px;
-    height: 30px;
-    padding: 0 10px;
+.quality-check-overlay .qc-reason-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: rgb(35, 42, 46);
+}
+
+.quality-check-overlay .qc-reason-optional {
+    font-weight: 400;
+    color: rgb(140, 154, 161);
+}
+
+.quality-check-overlay .qc-reason-input {
+    width: 100%;
+    padding: 8px 10px;
     font-family: Figtree, sans-serif;
     font-size: 13px;
-    font-weight: 500;
+    line-height: 18px;
     color: rgb(0, 27, 61);
     background-color: rgb(255, 255, 255);
     border: 1px solid rgb(214, 221, 225);
     border-radius: 6px;
+    resize: vertical;
+}
+
+.quality-check-overlay .qc-reason-input::placeholder {
+    color: rgb(160, 172, 178);
+}
+
+.quality-check-overlay .qc-reason-input:focus-visible {
+    outline: rgb(142, 46, 239) solid 2px;
+    outline-offset: 1px;
+    border-color: rgb(142, 46, 239);
+}
+
+/* Botões de decisão: mesma base dos botões secundários do footer; quando
+   ativos ganham um tom verde (looks right) ou vermelho (looks wrong). O ícone
+   Phosphor herda a cor do botão (currentColor). */
+.quality-check-overlay .qc-decision {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-width: 132px;
+    padding: 0.375rem 0.75rem;
+    font-family: Figtree, sans-serif;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.5;
+    color: rgb(35, 42, 46);
+    background-color: rgb(255, 255, 255);
+    border: 1px solid rgb(136, 158, 168);
+    border-radius: 8px;
     cursor: pointer;
     transition: background-color 140ms, border-color 140ms, color 140ms, box-shadow 140ms;
 }
 
 .quality-check-overlay .qc-decision svg {
-    width: 13px;
-    height: 13px;
-    flex: 0 0 13px;
+    flex: 0 0 auto;
 }
 
-.quality-check-overlay .qc-decision:hover {
-    border-color: rgb(178, 192, 199);
-    background-color: rgb(246, 248, 249);
+.quality-check-overlay .qc-decision:not(.is-active):hover {
+    color: rgb(52, 58, 64);
+    background-color: rgb(248, 249, 250);
+    border-color: rgb(173, 181, 189);
 }
 
 .quality-check-overlay .qc-decision--approve.is-active {
-    color: rgb(255, 255, 255);
-    background-color: rgb(34, 153, 84);
+    color: rgb(21, 87, 51);
+    background-color: rgb(223, 245, 231);
     border-color: rgb(34, 153, 84);
 }
 
 .quality-check-overlay .qc-decision--reject.is-active {
-    color: rgb(255, 255, 255);
-    background-color: rgb(200, 55, 55);
+    color: rgb(140, 32, 32);
+    background-color: rgb(250, 233, 233);
     border-color: rgb(200, 55, 55);
 }
 
 .quality-check-overlay .qc-decision:focus-visible {
     outline: rgb(142, 46, 239) solid 2px;
     outline-offset: 2px;
+}
+
+/* Segmented control: junta os dois botões num controle único e compacto. */
+.quality-check-overlay .qc-segment {
+    display: inline-flex;
+    border: 1px solid rgb(206, 212, 218);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.quality-check-overlay .qc-segment .qc-decision {
+    min-width: 0;
+    height: 32px;
+    padding: 0 12px;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    border: 0;
+    border-radius: 0;
+}
+
+.quality-check-overlay .qc-segment .qc-decision + .qc-decision {
+    border-left: 1px solid rgb(206, 212, 218);
+}
+
+.quality-check-overlay .qc-segment .qc-decision:focus-visible {
+    outline-offset: -2px;
 }
 
 /* ---------------------------------------------------------------- Footer --- */
@@ -329,9 +465,9 @@
     border-top: 1px solid rgb(222, 226, 230);
 }
 
-.quality-check-overlay .qc-footer-summary {
+.quality-check-overlay .qc-footer-progress {
     font-size: 13px;
-    color: rgb(69, 86, 95);
+    color: rgb(106, 130, 141);
 }
 
 .quality-check-overlay .qc-footer-actions {
@@ -386,12 +522,11 @@
     box-shadow: rgba(0, 0, 0, 0.12) 0px 1px 2px inset;
 }
 
-/* Responsivo: em telas estreitas o item vira coluna única. */
-@media (max-width: 720px) {
-    .quality-check-overlay .qc-item {
-        grid-template-columns: minmax(0, 1fr);
-    }
-    .quality-check-overlay .qc-item-actions {
-        flex-direction: row;
-    }
+/* Desabilitado até a primeira decisão (Looks right/wrong) do revisor.
+   Mesmo cinza do primary disabled dos demais modais (Generate codebook rules). */
+.quality-check-overlay .qc-btn--primary:disabled {
+    color: rgb(136, 158, 168);
+    background-color: rgb(214, 221, 225);
+    border-color: rgb(214, 221, 225);
+    cursor: not-allowed;
 }

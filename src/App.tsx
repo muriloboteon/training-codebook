@@ -4,7 +4,7 @@ import AccountCodebooksPage from './components/AccountCodebooksPage';
 import ValidatorPage from './components/ValidatorPage';
 
 function App() {
-  const [view, setView] = useState<PrototypeView>('validator');
+  const [view, setView] = useState<PrototypeView>('account-codebooks');
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { ArrowBendUpRight, LinkBreak, ListChecks, Columns, MagicWand } from '@phosphor-icons/react';
 import { color, font, radius, space } from '../tokens';
-import TrainCodebookModal from './TrainCodebookModal';
 import RecreateCodebookModal from './RecreateCodebookModal';
 import GenerateRulesProcessingModal from './GenerateRulesProcessingModal';
 import AccountCodebookRulesModal from './AccountCodebookRulesModal';
@@ -55,7 +54,7 @@ const codebooksData: Codebook[] = [
 ];
 
 // Row Action Icons (visible on hover) — redirect, delete, checklist, columns
-function RowActionIcons({ isVisible, onTrain, onRecreate }: { isVisible: boolean; onTrain: () => void; onRecreate: () => void }) {
+function RowActionIcons({ isVisible, onRecreate }: { isVisible: boolean; onRecreate: () => void }) {
     const iconButtonStyle: React.CSSProperties = {
         background: "none",
         border: "none",
@@ -145,25 +144,7 @@ function RowActionIcons({ isVisible, onTrain, onRecreate }: { isVisible: boolean
                 <Columns size={18} weight="bold" color={color.brand} />
             </button>
 
-            {/* Train Codebook */}
-            <button
-                type="button"
-                aria-label="Train Codebook"
-                title="Train Codebook"
-                style={iconButtonStyle}
-                onClick={(e) => { e.stopPropagation(); onTrain(); }}
-                onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.backgroundColor = color.brandSoft;
-                }}
-                onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.backgroundColor = "transparent";
-                }}
-            >
-                <MagicWand size={18} weight="bold" color={color.brand} />
-            </button>
-
-            {/* Recreate Codebook — teal MagicWand. Duplicates the Train Codebook
-                action, distinguished only by color; opens RecreateCodebookModal. */}
+            {/* Recreate Codebook — teal MagicWand; opens RecreateCodebookModal. */}
             <button
                 type="button"
                 aria-label="Recreate Codebook"
@@ -215,7 +196,6 @@ function CoderCodebooksTable({
 }) {
     const [codebooks] = useState(codebooksData);
     const [hoveredRowId, setHoveredRowId] = useState<string | null>(null);
-    const [trainCodebookName, setTrainCodebookName] = useState<string | null>(null);
     const [recreateCodebookName, setRecreateCodebookName] = useState<string | null>(null);
     // Fluxo "Generate codebook rules": recreate → processing → rules (validator).
     // `generatedFromCodebook` guarda o codebook de origem ao longo das etapas de
@@ -327,7 +307,6 @@ function CoderCodebooksTable({
                             <td style={{ ...cellStyle, textAlign: "center" }}>
                                 <RowActionIcons
                                     isVisible={hoveredRowId === cb.id}
-                                    onTrain={() => setTrainCodebookName(cb.codebookId)}
                                     onRecreate={() => setRecreateCodebookName(cb.codebookId)}
                                 />
                             </td>
@@ -369,11 +348,6 @@ function CoderCodebooksTable({
                 </tbody>
             </table>
         </div>
-        <TrainCodebookModal
-            isOpen={trainCodebookName !== null}
-            onClose={() => setTrainCodebookName(null)}
-            sourceCodebookName={trainCodebookName ?? ''}
-        />
         <RecreateCodebookModal
             isOpen={recreateCodebookName !== null}
             onClose={() => setRecreateCodebookName(null)}

@@ -95,6 +95,59 @@
     color: rgb(0, 27, 61);
 }
 
+/* Callout do Quality Check — card destacado no corpo do modal (opção C).
+   Tint roxo claro + ícone em badge sólido, dando visibilidade e contexto à
+   feature em vez de um botão secundário perdido no footer. */
+.account-codebook-rules-overlay .codebookQualityCheckCallout {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin: 0 12px 20px;
+    padding: 16px;
+    border: 1px solid rgb(224, 204, 250);
+    border-radius: 10px;
+    background-color: rgb(248, 243, 254);
+}
+
+.account-codebook-rules-overlay .codebookQualityCheckCallout-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background-color: rgb(85, 25, 138);
+    color: rgb(255, 255, 255);
+}
+
+.account-codebook-rules-overlay .codebookQualityCheckCallout-icon svg {
+    width: 20px;
+    height: 20px;
+}
+
+.account-codebook-rules-overlay .codebookQualityCheckCallout-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.account-codebook-rules-overlay .codebookQualityCheckCallout-title {
+    font-family: Figtree, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: rgb(85, 25, 138);
+}
+
+.account-codebook-rules-overlay .codebookQualityCheckCallout-desc {
+    font-family: Figtree, sans-serif;
+    font-size: 14px;
+    line-height: 1.45;
+    color: rgb(0, 27, 61);
+}
+
 .account-codebook-rules-overlay .dialogHeader .modal-title {
     flex: 1 1 auto;
     min-width: 0px;
@@ -632,35 +685,28 @@
     border-color: rgb(224, 213, 240) !important;
 }
 
-/* Spinner do estado "rodando". */
-.account-codebook-rules-overlay .qcSpinner {
-    animation: accountCodebookQcSpin 0.8s linear infinite;
-}
+/* O code refinado pelo QC é sinalizado apenas pela tag "Refined" (sem fundo
+   nem borda colorida na linha). */
 
-@keyframes accountCodebookQcSpin {
-    to {
-        transform: rotate(360deg);
-    }
-}
-
-/* Realce das linhas cujas regras o QC refinou. */
-#account-codebook-rules-html .codebook-code.refined {
-    background-color: rgb(250, 245, 255);
-    box-shadow: rgb(142, 46, 239) 3px 0px 0px inset;
-}
-
-/* Badge "Refined" no canto direito da linha do code. */
+/* Badge "Refined" no canto direito da linha do code. Segue o mesmo padrão das
+   status tags (borda colorida + fundo tint + texto escuro), sem o dot. */
 #account-codebook-rules-html .codebook-refined-badge {
     align-self: flex-start;
     flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
     margin-left: 8px;
-    padding: 1px 8px;
-    font-size: 11px;
+    height: 24px;
+    padding: 4px 10px;
+    box-sizing: border-box;
+    font-size: 14px;
     font-weight: 600;
-    line-height: 18px;
+    line-height: 16px;
+    letter-spacing: 0.24px;
     white-space: nowrap;
-    color: rgb(85, 25, 138);
-    background-color: rgb(238, 226, 252);
-    border-radius: 999px;
+    color: rgb(35, 42, 46);
+    background-color: rgb(245, 240, 255);
+    border: 1px solid rgb(155, 51, 219);
+    border-radius: 8px;
     user-select: none;
 }

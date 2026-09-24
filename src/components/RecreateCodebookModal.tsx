@@ -445,27 +445,32 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
 
                 {/* Body — fixed flex column; only the study list scrolls. */}
                 <div style={{ padding: space.xl, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                    <div style={{ flexShrink: 0, marginBottom: space.md, fontSize: font.size.md, color: color.textDark }}>
-                        Codebook: <strong style={{ color: color.textDark }}>{sourceCodebookName}</strong>
-                    </div>
                     {studies.length === 0 ? (
                         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <EmptyState codebookName={sourceCodebookName} />
                         </div>
                     ) : (
                         <>
-                            {/* Subtítulo + search na mesma linha (search compacto à direita) */}
-                            <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: space.lg }}>
-                                <p style={{ margin: 0, flex: 1, minWidth: 0, fontSize: font.size.md, color: color.textDark, lineHeight: '20px' }}>
-                                    Select the studies and questions to recreate this codebook as an AI Coder codebook.
-                                    <span
-                                        title={"We'll use your selection to generate the new codebook's codes and rules.\nSelecting a study includes all of its questions."}
-                                        aria-label="We'll use your selection to generate the new codebook's codes and rules. Selecting a study includes all of its questions."
-                                        style={{ display: 'inline-flex', verticalAlign: 'text-bottom', marginLeft: space.xs, cursor: 'help', color: color.textMuted }}
-                                    >
-                                        <Info size={16} weight="bold" />
-                                    </span>
-                                </p>
+                            {/* Instrução principal (topo). O search fica na linha do escopo,
+                                logo acima da tabela — mantendo sua posição original. */}
+                            <p style={{ flexShrink: 0, margin: 0, fontSize: font.size.md, color: color.textDark, lineHeight: '20px' }}>
+                                Select the studies and questions to recreate this codebook as an AI Coder codebook.
+                                <span
+                                    title={"We'll use your selection to generate the new codebook's codes and rules.\nSelecting a study includes all of its questions."}
+                                    aria-label="We'll use your selection to generate the new codebook's codes and rules. Selecting a study includes all of its questions."
+                                    style={{ display: 'inline-flex', verticalAlign: 'text-bottom', marginLeft: space.xs, cursor: 'help', color: color.textMuted }}
+                                >
+                                    <Info size={16} weight="bold" />
+                                </span>
+                            </p>
+
+                            {/* Escopo da lista + search na mesma linha, logo acima da tabela —
+                                deixando claro que os estudos abaixo são exatamente os que usam
+                                este codebook. */}
+                            <div style={{ flexShrink: 0, marginTop: space.sm, marginBottom: space.sm, display: 'flex', alignItems: 'center', gap: space.lg }}>
+                                <span style={{ flex: 1, minWidth: 0, fontSize: font.size.md, color: color.textMuted }}>
+                                    Showing all studies and questions where <strong style={{ color: color.textDark }}>{sourceCodebookName}</strong> is applied.
+                                </span>
                                 <div style={{ position: 'relative', width: '280px', flexShrink: 0 }}>
                                     <MagnifyingGlass
                                         size={16}
@@ -499,7 +504,7 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
                             {/* Master-detail grid — estilo "data grid" (como a lib de referência):
                                 linhas de grade verticais/horizontais, header cinza, coluna
                                 expander +/- à esquerda e linha aberta destacada. */}
-                            <div style={{ flex: 1, minHeight: 0, marginTop: space.md, border: gridLine, borderRadius: radius.lg, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                            <div style={{ flex: 1, minHeight: 0, border: gridLine, borderRadius: radius.lg, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                                 {/* Scroll body — o header fica DENTRO do scroll e "grudado" no
                                     topo (sticky). Assim header e linhas dividem exatamente a
                                     mesma largura de coluna, sem o desalinhamento causado pela

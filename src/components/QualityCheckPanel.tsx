@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ThumbsUp, ThumbsDown } from '@phosphor-icons/react';
 import './qualityCheckPanel.css';
 
 // -----------------------------------------------------------------------------
@@ -6,141 +7,90 @@ import './qualityCheckPanel.css';
 //
 // Contexto: dentro do AccountCodebookRulesModal (o "Validator" de codes/regras
 // da Account Codebooks) o usuário pode rodar um Quality Check. O codebook
-// treinado é aplicado a uma AMOSTRA (~10%, mockada) da source data; um veredito
-// de qualidade (LLM-as-judge) avalia a codificação da AI. Este painel mostra
-// esse sample para o usuário aprovar/rejeitar cada item. As rejeições
-// realimentam o refinamento das regras (feito pelo modal pai) antes da carga
-// completa.
+// treinado é aplicado a uma AMOSTRA (~10%, mockada) da source data e cada
+// resposta aparece com os codes que a AI aplicou. O usuário lê o verbatim +
+// os codes e decide aprovar ou rejeitar a codificação daquela resposta. Ao
+// rejeitar, pode (opcionalmente) escrever o motivo. As rejeições realimentam o
+// refinamento das regras (feito pelo modal pai) antes da carga completa.
 //
-// Componente NOVO (aprovado pelo PM): não existia no projeto uma UI de
-// code-review/confidence-scoring para reaproveitar. A aparência segue a
-// convenção da família de modais de codes da Account Codebooks
-// (accountCodebookRulesModal.css): raw rgb() + Figtree, para casar 1:1 com o
-// modal onde ele é aberto, em vez de importar tokens.ts.
+// Revisão 100% humana: NÃO há LLM-as-judge (confidence/veredito/rationale) —
+// o sinal de qualidade é a decisão do usuário e o motivo que ele escreve.
+//
+// A aparência segue a convenção da família de modais de codes da Account
+// Codebooks (accountCodebookRulesModal.css): raw rgb() + Figtree, para casar
+// 1:1 com o modal onde ele é aberto, em vez de importar tokens.ts.
 //
 // Protótipo: dados mockados, estados simulados, sem backend nem chamada real de
 // IA/LLM.
 // -----------------------------------------------------------------------------
 
-// Veredito do LLM-as-judge para uma resposta codificada da AI.
-//  - 'agree' → o juiz concorda com o código atribuído;
-//  - 'flag'  → o juiz sinaliza uma possível codificação incorreta.
-type JudgeVerdict = 'agree' | 'flag';
-
-// Decisão do usuário sobre cada item do sample.
+// Decisão do usuário sobre cada resposta do sample.
 type Decision = 'approve' | 'reject';
+
+// Label especial: a AI não conseguiu codificar a resposta. Renderiza como chip
+// vermelho ("Uncoded Idea"), diferente dos codes normais (barra roxa).
+const UNCODED = 'Uncoded Idea';
 
 interface SampleItem {
     id: string;
-    /** Identificador anônimo do respondente (mock). */
-    respondent: string;
     /** Verbatim da resposta na source data (mock). */
     answer: string;
-    /** Net + code atribuídos pela AI ao aplicar o codebook treinado. */
-    assignedNet: string;
-    assignedCode: string;
-    /** Veredito do LLM-as-judge sobre essa codificação. */
-    verdict: JudgeVerdict;
-    /** Confiança do juiz (0–100), exibida como pill colorida. */
-    confidence: number;
-    /** Justificativa curta do juiz. */
-    rationale: string;
+    /** Labels dos codes que a AI atribuiu a esta resposta. Pode ser mais de um. */
+    codes: string[];
 }
 
-// Sample mockado: ~10% da source data. Mistura codificações claras (agree, alta
-// confiança) com casos que o juiz sinaliza (flag, baixa confiança) para o
-// usuário revisar. Todos os codes referenciados existem no CODEBOOK_ROWS do
-// modal pai, então a rejeição tem um alvo real para refinar.
+// Sample mockado: ~10% da source data. Cada resposta traz um ou mais codes que
+// a AI aplicou (algumas com vários, como o codes modal do Ascribe). Os tamanhos
+// de verbatim variam de uma palavra a um parágrafo longo, para testar o card em
+// respostas curtas e longas. Todos os codes existem no CODEBOOK_ROWS do modal
+// pai, então a rejeição tem um alvo real para refinar.
 const SAMPLE_ITEMS: SampleItem[] = [
     {
         id: 's1',
-        respondent: 'R-0142',
-        answer: 'I usually get my groceries delivered from Amazon Fresh.',
-        assignedNet: 'Amazon Shopping And Delivery Services',
-        assignedCode: 'Amazon Fresh',
-        verdict: 'agree',
-        confidence: 96,
-        rationale: 'Explicit mention of Amazon Fresh as a grocery destination.',
+        answer:
+            'I do most of my weekly shopping at Walmart because it is the closest and cheapest, but for produce and specialty items I will drive out to Whole Foods or Trader Joe’s on the weekend. When I am too busy to go in person I order through Instacart, and honestly Amazon Fresh has been a lifesaver for the heavy stuff like water and paper towels. Once a month we still do a big bulk run at Costco for the whole family.',
+        codes: ['Walmart', 'Whole Foods', "Trader Joe's", 'Instacart', 'Amazon Fresh', 'Costco'],
     },
     {
         id: 's2',
-        respondent: 'R-0187',
         answer: 'mostly ubereats, sometimes doordash',
-        assignedNet: 'Food And Restaurant Delivery Services',
-        assignedCode: 'Uber Eats',
-        verdict: 'flag',
-        confidence: 58,
-        rationale: 'Two delivery services mentioned; only Uber Eats was coded — DoorDash was missed.',
+        codes: ['Uber Eats', 'DoorDash'],
     },
     {
         id: 's3',
-        respondent: 'R-0203',
         answer: 'I order food through Greetings',
-        assignedNet: 'Food And Restaurant Delivery Services',
-        assignedCode: 'GrubHub',
-        verdict: 'flag',
-        confidence: 41,
-        rationale: '"Greetings" is an unusual alias for GrubHub; likely a mis-transcription rather than a real match.',
+        codes: ['GrubHub'],
     },
     {
         id: 's4',
-        respondent: 'R-0231',
-        answer: 'Walmart, and sometimes Wolmart when the app autocorrects',
-        assignedNet: 'Major National Grocery Retailers',
-        assignedCode: 'Walmart',
-        verdict: 'agree',
-        confidence: 91,
-        rationale: 'Walmart (and misspelling Wolmart) correctly consolidated under Walmart.',
+        answer:
+            'It depends on the week. For a quick top-up I run into Target or the Dollar General near my house, but the real grocery trip is Kroger or Publix depending on which coupons are better that week. My daughter usually splits a Costco membership with us for the bulk stuff.',
+        codes: ['Target', 'Dollar General', 'Kroger', 'Publix', 'Costco'],
     },
     {
         id: 's5',
-        respondent: 'R-0258',
         answer: 'just uber',
-        assignedNet: 'Food And Restaurant Delivery Services',
-        assignedCode: 'Uber',
-        verdict: 'flag',
-        confidence: 52,
-        rationale: 'Ambiguous: bare "uber" could mean Uber (rideshare) or Uber Eats. Rule does not disambiguate.',
+        codes: ['Uber'],
     },
     {
         id: 's6',
-        respondent: 'R-0276',
         answer: 'Trader joes and whole foods on amazon',
-        assignedNet: 'Specialty And Natural Food Stores',
-        assignedCode: "Trader Joe's",
-        verdict: 'flag',
-        confidence: 60,
-        rationale: 'A second destination ("Whole Foods on Amazon") in the same answer was not captured.',
+        codes: ["Trader Joe's", 'Whole Foods'],
     },
     {
         id: 's7',
-        respondent: 'R-0299',
         answer: 'asdfgh',
-        assignedNet: 'No Preference Or Unable To Specify',
-        assignedCode: 'Non-response or unclear',
-        verdict: 'agree',
-        confidence: 89,
-        rationale: 'Gibberish correctly routed to the non-response code.',
+        codes: [UNCODED],
     },
     {
         id: 's8',
-        respondent: 'R-0314',
         answer: 'netflix',
-        assignedNet: 'Other Codes',
-        assignedCode: 'Netflix',
-        verdict: 'flag',
-        confidence: 38,
-        rationale: 'Streaming service, not a shopping/grocery destination — likely off-topic for this study.',
+        codes: ['Netflix'],
     },
     {
         id: 's9',
-        respondent: 'R-0338',
         answer: 'Costco all the way, plus BJ’s for bulk',
-        assignedNet: 'Warehouse And Bulk Retailers',
-        assignedCode: 'Costco',
-        verdict: 'agree',
-        confidence: 94,
-        rationale: 'Costco correctly coded (BJ’s also present but Costco is the primary destination).',
+        codes: ['Costco', "BJ's"],
     },
 ];
 
@@ -149,54 +99,54 @@ const SAMPLE_PERCENT = 10;
 // Total de respostas na source data (mock), usado só para exibir "N de M (10%)".
 const TOTAL_RESPONSES = Math.round(SAMPLE_ITEMS.length / (SAMPLE_PERCENT / 100));
 
-// Ícones (inline, mesma convenção FontAwesome dos outros modais de codes) ------
-
-const IconCheck = () => (
-    <svg viewBox="0 0 448 512" role="img" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <path fill="currentColor" d="M438.6 105.4c12.5 12.5 12.5 32.8 0 45.3l-256 256c-12.5 12.5-32.8 12.5-45.3 0l-128-128c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0L160 338.7 393.4 105.4c12.5-12.5 32.8-12.5 45.3 0z" />
-    </svg>
-);
-
-const IconXmark = () => (
-    <svg viewBox="0 0 384 512" role="img" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <path fill="currentColor" d="M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z" />
-    </svg>
-);
-
 interface QualityCheckPanelProps {
     isOpen: boolean;
     onCancel: () => void;
     /** Concluir a revisão. Devolve ao modal pai os labels dos codes cujas regras
-     *  precisam ser refinadas (codes distintos entre os itens rejeitados). */
+     *  precisam ser refinadas (codes distintos entre as respostas rejeitadas). */
     onApply: (refinedCodes: string[]) => void;
 }
 
 function QualityCheckPanel({ isOpen, onCancel, onApply }: QualityCheckPanelProps) {
-    // Decisão por item. Pré-preenchida com a sugestão do juiz (agree → approve,
-    // flag → reject); o usuário pode sobrescrever. Modela o padrão
-    // LLM-as-judge propõe / humano confirma.
-    const [decisions, setDecisions] = useState<Record<string, Decision>>(() =>
-        Object.fromEntries(
-            SAMPLE_ITEMS.map((item) => [item.id, item.verdict === 'flag' ? 'reject' : 'approve']),
-        ),
-    );
+    // Decisão por resposta. Começa em estado nulo (nem approve nem reject): o
+    // revisor é quem seleciona. Respostas sem decisão ficam como não revisadas.
+    const [decisions, setDecisions] = useState<Record<string, Decision>>({});
+    // Motivo (opcional) por resposta rejeitada. Sinal humano que substitui a
+    // rationale do juiz; fica local ao painel (protótipo, sem backend).
+    const [reasons, setReasons] = useState<Record<string, string>>({});
+    // PROTÓTIPO: alterna entre versões do card para comparação (removível).
+    const [layout, setLayout] = useState<'bottom' | 'rail' | 'stack'>('bottom');
 
     if (!isOpen) return null;
 
-    const setDecision = (id: string, decision: Decision) =>
-        setDecisions((prev) => ({ ...prev, [id]: decision }));
+    const approve = (id: string) => {
+        setDecisions((prev) => ({ ...prev, [id]: 'approve' }));
+        // Aprovar limpa o motivo daquela resposta.
+        setReasons((prev) => {
+            if (!(id in prev)) return prev;
+            const next = { ...prev };
+            delete next[id];
+            return next;
+        });
+    };
+
+    const reject = (id: string) => setDecisions((prev) => ({ ...prev, [id]: 'reject' }));
+
+    const setReason = (id: string, value: string) =>
+        setReasons((prev) => ({ ...prev, [id]: value }));
 
     const rejectedItems = SAMPLE_ITEMS.filter((item) => decisions[item.id] === 'reject');
     const rejectedCount = rejectedItems.length;
-    // Codes distintos entre os itens rejeitados — alvos do refinamento de regras.
-    const refinedCodes = Array.from(new Set(rejectedItems.map((item) => item.assignedCode)));
+    // Codes distintos entre as respostas rejeitadas — alvos do refinamento de
+    // regras. Uma resposta rejeitada contribui com todos os seus codes.
+    const refinedCodes = Array.from(new Set(rejectedItems.flatMap((item) => item.codes)));
 
     // OPEN: fallback quando quase toda a amostra é rejeitada (novo loop de treino
     // vs. ajuste manual). Aqui só sinalizamos; a ação continua a mesma.
     const mostlyRejected = rejectedCount >= Math.ceil(SAMPLE_ITEMS.length * 0.7);
 
-    const confidenceLevel = (confidence: number) =>
-        confidence >= 80 ? 'high' : confidence >= 60 ? 'medium' : 'low';
+    // Progresso da revisão (respostas que já receberam uma decisão).
+    const reviewedCount = SAMPLE_ITEMS.filter((item) => decisions[item.id]).length;
 
     return (
         <div
@@ -218,10 +168,34 @@ function QualityCheckPanel({ isOpen, onCancel, onApply }: QualityCheckPanelProps
                                 coding below; rejections refine the matching rules.
                             </p>
                         </div>
+                        {/* PROTÓTIPO: comparação de versões do card (removível). */}
+                        <div className="qc-layout-toggle" role="group" aria-label="Preview layout">
+                            <button
+                                type="button"
+                                className={layout === 'bottom' ? 'is-active' : ''}
+                                onClick={() => setLayout('bottom')}
+                            >
+                                Bottom bar
+                            </button>
+                            <button
+                                type="button"
+                                className={layout === 'rail' ? 'is-active' : ''}
+                                onClick={() => setLayout('rail')}
+                            >
+                                Top right
+                            </button>
+                            <button
+                                type="button"
+                                className={layout === 'stack' ? 'is-active' : ''}
+                                onClick={() => setLayout('stack')}
+                            >
+                                Stacked
+                            </button>
+                        </div>
                         <button type="button" className="qc-btn-close" aria-label="Close" onClick={onCancel} />
                     </div>
 
-                    {/* Body — lista de itens do sample */}
+                    {/* Body — lista de respostas do sample */}
                     <div className="qc-body">
                         {mostlyRejected && (
                             <div className="qc-warning" role="status">
@@ -229,64 +203,99 @@ function QualityCheckPanel({ isOpen, onCancel, onApply }: QualityCheckPanelProps
                                 consider retraining. {/* OPEN: loop de re-treino vs. ajuste manual */}
                             </div>
                         )}
-                        <ul className="qc-list">
+                        <ul className={`qc-list qc-list--${layout}`}>
                             {SAMPLE_ITEMS.map((item) => {
                                 const decision = decisions[item.id];
-                                return (
-                                    <li
-                                        key={item.id}
-                                        className={`qc-item qc-item--${decision}`}
-                                    >
-                                        <div className="qc-item-main">
-                                            <div className="qc-item-answer">
-                                                <span className="qc-respondent">{item.respondent}</span>
-                                                <span className="qc-answer-text">{item.answer}</span>
-                                            </div>
-                                            <div className="qc-item-coding">
-                                                <span className="qc-coded-as">Coded as</span>
-                                                <span className="qc-code-chip">
-                                                    <span className="qc-code-net">{item.assignedNet}</span>
-                                                    <span className="qc-code-sep"> · </span>
-                                                    <span className="qc-code-label">{item.assignedCode}</span>
+                                const isRejected = decision === 'reject';
+                                const codingBlock = (
+                                    <div className="qc-item-coding">
+                                        <span className="qc-coded-as">Applied codes</span>
+                                        <div className="qc-chips">
+                                            {item.codes.map((code, i) => (
+                                                <span
+                                                    key={i}
+                                                    className={`qc-code-chip${code === UNCODED ? ' qc-code-chip--uncoded' : ''}`}
+                                                >
+                                                    {code}
                                                 </span>
-                                            </div>
+                                            ))}
                                         </div>
-
-                                        <div className="qc-item-judge">
-                                            <span
-                                                className={`qc-confidence qc-confidence--${confidenceLevel(item.confidence)}`}
-                                                title="LLM judge confidence"
-                                            >
-                                                {item.confidence}%
-                                            </span>
-                                            <span className={`qc-verdict qc-verdict--${item.verdict}`}>
-                                                {item.verdict === 'agree' ? 'Judge agrees' : 'Judge flagged'}
-                                            </span>
-                                            <p className="qc-rationale">{item.rationale}</p>
-                                        </div>
-
-                                        <div className="qc-item-actions" role="group" aria-label="Approve or reject coding">
+                                    </div>
+                                );
+                                const actionsBlock = (
+                                    <div
+                                        className="qc-item-actions"
+                                        role="group"
+                                        aria-label="Approve or reject coding"
+                                    >
+                                        <span className="qc-actions-label">Is the AI coding correct?</span>
+                                        <div className="qc-segment">
                                             <button
                                                 type="button"
                                                 className={`qc-decision qc-decision--approve${decision === 'approve' ? ' is-active' : ''}`}
                                                 aria-pressed={decision === 'approve'}
-                                                title="Approve this coding"
-                                                onClick={() => setDecision(item.id, 'approve')}
+                                                title="The coding looks right"
+                                                onClick={() => approve(item.id)}
                                             >
-                                                <IconCheck />
-                                                <span>Approve</span>
+                                                <ThumbsUp size={15} />
+                                                <span>Looks right</span>
                                             </button>
                                             <button
                                                 type="button"
-                                                className={`qc-decision qc-decision--reject${decision === 'reject' ? ' is-active' : ''}`}
-                                                aria-pressed={decision === 'reject'}
-                                                title="Reject — refine this rule"
-                                                onClick={() => setDecision(item.id, 'reject')}
+                                                className={`qc-decision qc-decision--reject${isRejected ? ' is-active' : ''}`}
+                                                aria-pressed={isRejected}
+                                                title="The coding looks wrong"
+                                                onClick={() => reject(item.id)}
                                             >
-                                                <IconXmark />
-                                                <span>Reject</span>
+                                                <ThumbsDown size={15} />
+                                                <span>Looks wrong</span>
                                             </button>
                                         </div>
+                                    </div>
+                                );
+                                return (
+                                    <li
+                                        key={item.id}
+                                        className={`qc-item${decision ? ` qc-item--${decision}` : ''}`}
+                                    >
+                                        <div className="qc-item-row">
+                                            <div className="qc-item-main">
+                                                <div className="qc-item-answer">
+                                                    <span className="qc-answer-text">{item.answer}</span>
+                                                </div>
+                                                {(layout === 'rail' || layout === 'stack') && codingBlock}
+                                            </div>
+
+                                            {layout === 'bottom' ? (
+                                                <div className="qc-item-footer">
+                                                    {codingBlock}
+                                                    {actionsBlock}
+                                                </div>
+                                            ) : (
+                                                actionsBlock
+                                            )}
+                                        </div>
+
+                                        {/* Motivo (opcional) — só quando rejeitado. */}
+                                        {isRejected && (
+                                            <div className="qc-reason">
+                                                <label
+                                                    className="qc-reason-label"
+                                                    htmlFor={`qc-reason-${item.id}`}
+                                                >
+                                                    What looks wrong?{' '}
+                                                    <span className="qc-reason-optional">Optional</span>
+                                                </label>
+                                                <textarea
+                                                    id={`qc-reason-${item.id}`}
+                                                    className="qc-reason-input"
+                                                    rows={2}
+                                                    placeholder="e.g. a brand is missing, or a code doesn’t match what the respondent said"
+                                                    value={reasons[item.id] ?? ''}
+                                                    onChange={(e) => setReason(item.id, e.target.value)}
+                                                />
+                                            </div>
+                                        )}
                                     </li>
                                 );
                             })}
@@ -295,16 +304,9 @@ function QualityCheckPanel({ isOpen, onCancel, onApply }: QualityCheckPanelProps
 
                     {/* Footer */}
                     <div className="qc-footer">
-                        <div className="qc-footer-summary">
-                            {rejectedCount === 0 ? (
-                                <span>All coding approved — no rules to refine.</span>
-                            ) : (
-                                <span>
-                                    {rejectedCount} rejected · {refinedCodes.length} rule
-                                    {refinedCodes.length === 1 ? '' : 's'} to refine
-                                </span>
-                            )}
-                        </div>
+                        <span className="qc-footer-progress">
+                            {reviewedCount} of {SAMPLE_ITEMS.length} reviewed
+                        </span>
                         <div className="qc-footer-actions">
                             <button type="button" className="qc-btn qc-btn--secondary" onClick={onCancel}>
                                 Cancel
@@ -313,8 +315,9 @@ function QualityCheckPanel({ isOpen, onCancel, onApply }: QualityCheckPanelProps
                                 type="button"
                                 className="qc-btn qc-btn--primary"
                                 onClick={() => onApply(refinedCodes)}
+                                disabled={reviewedCount === 0}
                             >
-                                {rejectedCount === 0 ? 'Confirm & continue' : 'Apply & refine rules'}
+                                Finish quality check
                             </button>
                         </div>
                     </div>

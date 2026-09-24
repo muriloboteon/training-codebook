@@ -31,16 +31,32 @@ interface GenerateRulesProcessingModalProps {
     onComplete: () => void;
     /** Chamado ao abortar (ESC / clique-fora / X). */
     onCancel: () => void;
+    /** aria-label do dialog e título do header. Default: fluxo "Generate rules". */
+    ariaLabel?: string;
+    /** Título grande no corpo. Default: fluxo "Generate rules". */
+    title?: string;
+    /** Subtítulo abaixo do título. Default: fluxo "Generate rules". */
+    subtitle?: string;
+    /** Duração simulada do processamento (ms). Default: PROCESS_MS. */
+    durationMs?: number;
 }
 
-function GenerateRulesProcessingModal({ isOpen, onComplete, onCancel }: GenerateRulesProcessingModalProps) {
+function GenerateRulesProcessingModal({
+    isOpen,
+    onComplete,
+    onCancel,
+    ariaLabel = 'Generating codebook rules',
+    title = 'Analyzing your responses…',
+    subtitle = 'We are reviewing your selected data to generate the codebook rules.',
+    durationMs = PROCESS_MS,
+}: GenerateRulesProcessingModalProps) {
     // Simula o processamento e chama onComplete ao final. Keyed em isOpen: cada
     // (re)abertura reinicia a contagem do zero.
     useEffect(() => {
         if (!isOpen) return;
-        const done = window.setTimeout(onComplete, PROCESS_MS);
+        const done = window.setTimeout(onComplete, durationMs);
         return () => clearTimeout(done);
-    }, [isOpen, onComplete]);
+    }, [isOpen, onComplete, durationMs]);
 
     // Fecha com ESC (aborta).
     useEffect(() => {
@@ -56,7 +72,7 @@ function GenerateRulesProcessingModal({ isOpen, onComplete, onCancel }: Generate
         <div
             role="dialog"
             aria-modal="true"
-            aria-label="Generating codebook rules"
+            aria-label={ariaLabel}
             onMouseDown={onCancel}
             style={{
                 position: 'fixed',
@@ -89,7 +105,7 @@ function GenerateRulesProcessingModal({ isOpen, onComplete, onCancel }: Generate
             >
                 {/* Header — mesmo chrome do modal de Instructions */}
                 <div style={{ padding: `${space.lg} ${space.xl}`, borderBottom: `1px solid ${color.border}`, backgroundColor: color.surfaceSubtle, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: font.size.xl, fontWeight: font.weight.semibold, color: color.textDark }}>Generating codebook rules</span>
+                    <span style={{ fontSize: font.size.xl, fontWeight: font.weight.semibold, color: color.textDark }}>{ariaLabel}</span>
                     <button
                         type="button"
                         aria-label="Cancel"
@@ -145,10 +161,10 @@ function GenerateRulesProcessingModal({ isOpen, onComplete, onCancel }: Generate
                     </div>
 
                     <div style={{ fontSize: font.size.xl, fontWeight: font.weight.semibold, color: color.textStrong }}>
-                        Analyzing your responses…
+                        {title}
                     </div>
                     <div style={{ fontSize: font.size.md, color: color.textStrong, marginTop: space.sm, lineHeight: '20px', maxWidth: '360px' }}>
-                        We are reviewing your selected data to generate the codebook rules.
+                        {subtitle}
                     </div>
                 </div>
 

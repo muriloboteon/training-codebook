@@ -1,6 +1,8 @@
 import { useEffect, useReducer, useRef, useState } from 'react';
+import { SealCheck } from '@phosphor-icons/react';
 import './accountCodebookRulesModal.css';
 import QualityCheckPanel from './QualityCheckPanel';
+import GenerateRulesProcessingModal from './GenerateRulesProcessingModal';
 import ModalButton from './ModalButton';
 
 // -----------------------------------------------------------------------------
@@ -100,25 +102,6 @@ const IconCopy = () => (
     </svg>
 );
 
-// Escudo com check — gatilho do Quality Check.
-const IconShieldCheck = () => (
-    <svg className="codebookButtonIcon" viewBox="0 0 512 512" role="img" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <path
-            fill="currentColor"
-            d="M256 0c4.6 0 9.2 1 13.4 2.9L457.7 82.8c22 9.3 38.4 31 38.3 57.2c-.5 99.2-41.3 280.7-213.6 363.2c-16.7 8-36.1 8-52.8 0C57.3 420.7 16.5 239.2 16 140c-.1-26.2 16.3-47.9 38.3-57.2L242.7 2.9C246.8 1 251.4 0 256 0zm0 66.8l0 378.1C394 378 431.1 230.1 432 141.4L256 66.8 256 66.8z"
-        />
-    </svg>
-);
-
-// Spinner (roda via CSS .qcSpinner) — estado de "rodando" do Quality Check.
-const IconSpinner = () => (
-    <svg className="codebookButtonIcon qcSpinner" viewBox="0 0 512 512" role="img" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <path
-            fill="currentColor"
-            d="M304 48a48 48 0 1 0-96 0 48 48 0 1 0 96 0zm0 416a48 48 0 1 0-96 0 48 48 0 1 0 96 0zM48 304a48 48 0 1 0 0-96 48 48 0 1 0 0 96zm464-48a48 48 0 1 0-96 0 48 48 0 1 0 96 0zM142.9 437A48 48 0 1 0 75 369.1 48 48 0 1 0 142.9 437zm0-294.2A48 48 0 1 0 75 75a48 48 0 1 0 67.9 67.9zM369.1 437A48 48 0 1 0 437 369.1 48 48 0 1 0 369.1 437z"
-        />
-    </svg>
-);
 
 // Dados do codebook (portados de CodebookEditor.tsx) ---------------------------
 
@@ -419,32 +402,23 @@ function AccountCodebookRulesModal({ isOpen, onClose, onCreate }: AccountCodeboo
     // 'reviewing' (painel de revisão do sample aberto por cima do modal).
     // OPEN: mecânica do QC (opt-in vs. sempre acionável). Default do protótipo:
     // botão acionável, disparado manualmente.
-    const [qcPhase, setQcPhase] = useState<'idle' | 'running' | 'reviewing'>('idle');
+    // Fases do QC: idle → running (processamento inicial) → reviewing (revisão do
+    // sample) → applying (processamento que "aprende" com as marcações right/wrong
+    // e ajusta as regras) → idle (de volta ao codebook, com os codes realçados).
+    const [qcPhase, setQcPhase] = useState<'idle' | 'running' | 'reviewing' | 'applying'>('idle');
     // Se o QC já rodou ao menos uma vez nesta sessão do modal (muda a ação de
     // conclusão para "Done" e nomeia o resultado como "… – AI trained").
     const [qcCompleted, setQcCompleted] = useState(false);
     // Labels dos codes cujas regras foram refinadas pelo QC (para realce + badge).
     const [refinedLabels, setRefinedLabels] = useState<Set<string>>(new Set());
-    // Quantos codes foram refinados no último ciclo de QC (para o subtítulo).
-    const [lastRefinedCount, setLastRefinedCount] = useState(0);
-
-    // Timer do loading simulado; limpo ao desmontar para não disparar depois que
-    // o modal some.
-    const qcTimerRef = useRef<number | null>(null);
-    useEffect(
-        () => () => {
-            if (qcTimerRef.current !== null) window.clearTimeout(qcTimerRef.current);
-        },
-        [],
-    );
+    // Codes a refinar, capturados ao clicar "Finish" na revisão. Ficam pendentes
+    // enquanto o modal de processamento roda; o refino é aplicado ao concluir.
+    const [pendingRefineCodes, setPendingRefineCodes] = useState<string[]>([]);
 
     const runQualityCheck = () => {
+        // Abre o modal de processamento (fase 'running'). Ele controla o tempo
+        // simulado e, ao terminar, avança para 'reviewing' via onComplete.
         setQcPhase('running');
-        // Loading simulado (~2,5s) antes de mostrar o resultado do sample.
-        qcTimerRef.current = window.setTimeout(() => {
-            qcTimerRef.current = null;
-            setQcPhase('reviewing');
-        }, 2500);
     };
 
     // Conclusão da revisão do sample: refina em lote as regras dos codes com
@@ -463,7 +437,6 @@ function AccountCodebookRulesModal({ isOpen, onClose, onCreate }: AccountCodeboo
             dispatch({ type: 'commit', rows: nextRows });
             setRefinedLabels((prev) => new Set([...prev, ...codesToRefine]));
         }
-        setLastRefinedCount(codeSet.size);
         setQcCompleted(true);
         setQcPhase('idle');
     };
@@ -544,18 +517,35 @@ function AccountCodebookRulesModal({ isOpen, onClose, onCreate }: AccountCodeboo
                             textos (label/rule) são editáveis clicando neles. Fica dentro
                             da área de scroll, rolando junto com a lista. */}
                         <p className="codebookModalSubtitle">
-                            {!qcCompleted ? (
-                                'Review and refine your codebook. Click any code or rule to edit.'
-                            ) : lastRefinedCount > 0 ? (
-                                <>
-                                    Quality check complete — {lastRefinedCount} rule
-                                    {lastRefinedCount === 1 ? '' : 's'} refined (highlighted below).
-                                    Re-run the check or finish.
-                                </>
-                            ) : (
-                                'Quality check passed — no changes needed. Re-run the check or finish.'
-                            )}
+                            Review and refine your codebook. Click any code or rule to edit.
                         </p>
+
+                        {/* Callout do Quality Check — tira a ação da barra de botões e
+                            dá contexto do que a feature faz, tornando-a mais visível.
+                            O botão troca de estado: idle → running → completed (Re-run). */}
+                        <div className="codebookQualityCheckCallout">
+                            <span className="codebookQualityCheckCallout-icon" aria-hidden="true">
+                                <SealCheck size={20} weight="fill" />
+                            </span>
+                            <div className="codebookQualityCheckCallout-text">
+                                <span className="codebookQualityCheckCallout-title">
+                                    Quality check
+                                </span>
+                                <span className="codebookQualityCheckCallout-desc">
+                                    Apply the trained codebook to a real sample and review how the AI codes it before you finish.
+                                </span>
+                            </div>
+                            <ModalButton
+                                variant="secondary"
+                                onClick={runQualityCheck}
+                                disabled={qcPhase !== 'idle'}
+                                title="Apply the trained codebook to a sample and review the AI coding"
+                                style={{ flexShrink: 0 }}
+                            >
+                                Run quality check
+                            </ModalButton>
+                        </div>
+
                         <div className="form-group">
                             {/* Container não editável; os textos internos (net,
                                 label e rule) são contentEditable — igual ao
@@ -691,23 +681,9 @@ function AccountCodebookRulesModal({ isOpen, onClose, onCreate }: AccountCodeboo
                             </button>
                         </div>
                         <div className="aiCoder-dialog-prompt-multiline-footer-actions">
-                            {/* Gatilho do Quality Check. Estado neutro antes do 1º run;
-                                "Running…" durante o loading simulado; "Re-run" depois.
-                                Secondary (outline roxo) do sistema de botões do Figma. */}
-                            <ModalButton
-                                variant="secondary"
-                                onClick={runQualityCheck}
-                                disabled={qcPhase !== 'idle'}
-                                title="Apply the trained codebook to a sample and review the AI coding"
-                                style={{ marginRight: 'auto' }}
-                            >
-                                {qcPhase === 'running' ? <IconSpinner /> : <IconShieldCheck />}
-                                {qcPhase === 'running'
-                                    ? 'Running quality check…'
-                                    : qcCompleted
-                                      ? 'Re-run quality check'
-                                      : 'Quality check'}
-                            </ModalButton>
+                            {/* O gatilho do Quality Check agora vive no callout do corpo
+                                (mais visível e com contexto). O footer mantém só as ações
+                                de conclusão. */}
                             <ModalButton variant="tertiary" onClick={onClose}>
                                 Cancel
                             </ModalButton>
@@ -718,7 +694,7 @@ function AccountCodebookRulesModal({ isOpen, onClose, onCreate }: AccountCodeboo
                                 variant="primary"
                                 onClick={() => onCreate(qcCompleted ? { trained: true } : undefined)}
                             >
-                                {qcCompleted ? 'Done' : 'Create Codebook'}
+                                Create Codebook
                             </ModalButton>
                         </div>
                     </div>
@@ -726,12 +702,42 @@ function AccountCodebookRulesModal({ isOpen, onClose, onCreate }: AccountCodeboo
             </div>
         </div>
 
+        {/* Processamento do Quality Check — reusa o mesmo modal de processamento do
+            fluxo "Generate rules" (mesmo tamanho/altura/chrome), só com o texto
+            ajustado. Ao concluir, avança para a revisão do sample. */}
+        <GenerateRulesProcessingModal
+            isOpen={qcPhase === 'running'}
+            onComplete={() => setQcPhase('reviewing')}
+            onCancel={() => setQcPhase('idle')}
+            ariaLabel="Running quality check"
+            title="Running quality check…"
+            subtitle="We are applying your codebook to a sample of responses and reviewing the AI coding."
+        />
+
         {/* Painel de revisão do sample (novo componente). Fica FORA do overlay do
-            modal para o clique no seu backdrop não fechar o modal inteiro. */}
+            modal para o clique no seu backdrop não fechar o modal inteiro. Ao clicar
+            "Finish", captura os codes marcados e vai para o processamento (applying);
+            o refino só é aplicado quando esse processamento termina. */}
         <QualityCheckPanel
             isOpen={qcPhase === 'reviewing'}
             onCancel={() => setQcPhase('idle')}
-            onApply={applyQualityCheck}
+            onApply={(codes) => {
+                setPendingRefineCodes(codes);
+                setQcPhase('applying');
+            }}
+        />
+
+        {/* Processamento pós-revisão — a IA "aprende" com o que foi marcado
+            right/wrong e ajusta os codes/regras. Mesmo modal/tamanho do primeiro
+            processamento, com texto próprio. Ao concluir, aplica o refino e volta
+            ao codebook com as regras reajustadas realçadas. */}
+        <GenerateRulesProcessingModal
+            isOpen={qcPhase === 'applying'}
+            onComplete={() => applyQualityCheck(pendingRefineCodes)}
+            onCancel={() => setQcPhase('idle')}
+            ariaLabel="Applying your feedback"
+            title="Applying your feedback…"
+            subtitle="We're reviewing what you marked right and wrong to adjust the codebook rules."
         />
         </>
     );

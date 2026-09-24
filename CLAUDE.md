@@ -56,8 +56,9 @@ Do **not** perform visual verification in any iteration: don't start the dev ser
 
 ## Git
 
-Another developer owns the GitHub remote. Never push, open PRs, or otherwise modify the remote —
-work locally only, and commit only when the user asks. The user handles all pushes manually.
+The GitHub remote (`muriloboteon/training-codebook`) is the user's own. Commit only when the user
+asks. Claude may push to `main` when the user asks; still do not open PRs or otherwise change remote
+settings without explicit request.
 
 ## Design tokens
 

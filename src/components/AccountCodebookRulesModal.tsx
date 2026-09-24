@@ -532,7 +532,7 @@ function AccountCodebookRulesModal({ isOpen, onClose, onCreate }: AccountCodeboo
                                     Quality check
                                 </span>
                                 <span className="codebookQualityCheckCallout-desc">
-                                    Apply the trained codebook to a real sample and review how the AI codes it before you finish.
+                                    Apply the trained codebook to a real sample and review how the AI codes it before you create the codebook.
                                 </span>
                             </div>
                             <ModalButton

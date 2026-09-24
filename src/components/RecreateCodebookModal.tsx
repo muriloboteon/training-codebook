@@ -418,7 +418,7 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
                 <div style={{ padding: `${space.lg} ${space.xl}`, borderBottom: `1px solid ${color.border}`, backgroundColor: color.surfaceSubtle }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <span style={{ fontSize: font.size.xl, fontWeight: font.weight.semibold, color: color.textDark }}>
-                            Recreate Codebook
+                            Recreate and train Codebook
                         </span>
                         <button
                             type="button"

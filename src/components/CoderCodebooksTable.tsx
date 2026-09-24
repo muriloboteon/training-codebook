@@ -148,7 +148,7 @@ function RowActionIcons({ isVisible, onRecreate }: { isVisible: boolean; onRecre
             <button
                 type="button"
                 aria-label="Recreate Codebook"
-                title="Recreate Codebook"
+                title="Recreate and train this codebook for AI Coder"
                 style={iconButtonStyle}
                 onClick={(e) => { e.stopPropagation(); onRecreate(); }}
                 onMouseEnter={(e) => {

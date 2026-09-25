@@ -1,8 +1,8 @@
 /* -----------------------------------------------------------------------------
    qualityCheckPanel.css
 
-   Estilos do QualityCheckPanel — o visor de revisão do Quality Check aberto por
-   cima do AccountCodebookRulesModal.
+   Estilos do QualityCheckPanel — o relatório de diferenças do Quality Check
+   aberto por cima do AccountCodebookRulesModal.
 
    Convenção: segue a MESMA linha dos modais de codes da Account Codebooks
    (accountCodebookRulesModal.css / validatorCodesModal.css) — raw rgb() + fonte
@@ -94,7 +94,7 @@
     line-height: 1.5;
 }
 
-/* PROTÓTIPO: seletor de versões do card (segmented control). Removível. */
+/* PROTÓTIPO: seletor de versões da comparação (segmented control). Removível. */
 .quality-check-overlay .qc-layout-toggle {
     display: inline-flex;
     flex: 0 0 auto;
@@ -150,15 +150,36 @@
     color: rgb(0, 27, 61);
 }
 
-.quality-check-overlay .qc-warning {
+/* Resumo no topo do relatório (compared · matched · differences). */
+.quality-check-overlay .qc-summary {
     margin-bottom: 12px;
-    padding: 10px 12px;
-    font-size: 13px;
-    line-height: 1.5;
-    color: rgb(120, 53, 15);
-    background-color: rgb(254, 249, 231);
-    border: 1px solid rgb(240, 213, 147);
-    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 20px;
+    color: rgb(0, 27, 61);
+    background-color: rgb(246, 248, 249);
+    border: 1px solid rgb(224, 230, 234);
+    border-radius: 8px;
+}
+
+/* Legenda única do destaque (no lugar de texto dentro das tags). */
+.quality-check-overlay .qc-legend {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: -4px 0 12px;
+    font-size: 12px;
+    color: rgb(69, 86, 95);
+}
+
+.quality-check-overlay .qc-legend-swatch {
+    width: 14px;
+    height: 14px;
+    background-color: rgb(254, 243, 224);
+    border: 1px solid rgb(245, 214, 160);
+    border-left: 3px solid rgb(217, 119, 6);
+    border-radius: 3px;
 }
 
 .quality-check-overlay .qc-list {
@@ -170,59 +191,156 @@
     gap: 8px;
 }
 
-/* Card da resposta: verbatim + chips de code no topo, ações à direita, e o
-   campo de motivo abrindo em largura total quando rejeitada. */
+/* Card da resposta com diferença: verbatim, comparação humano vs. AI (colunas
+   ou tabela) e a validação "Who is right?". */
 .quality-check-overlay .qc-item {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
     padding: 12px 14px;
     border: 1px solid rgb(224, 230, 234);
     border-radius: 8px;
     background-color: rgb(255, 255, 255);
-    transition: border-color 0.15s, background-color 0.15s;
-}
-
-/* Linha superior: verbatim + codes (esquerda) | ações (direita). */
-.quality-check-overlay .qc-item-row {
-    display: flex;
-    align-items: flex-start;
-    gap: 14px;
-}
-
-.quality-check-overlay .qc-item-main {
-    flex: 1 1 auto;
-    min-width: 0;
-}
-
-.quality-check-overlay .qc-item-answer {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
 }
 
 .quality-check-overlay .qc-answer-text {
     display: block;
     font-size: 14px;
     line-height: 21px;
-    font-optical-sizing: auto;
     font-weight: 400;
-    font-style: normal;
     color: rgb(0, 27, 61);
 }
 
-.quality-check-overlay .qc-item-coding {
-    margin-top: 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
+/* === Versão COLUMNS: duas colunas lado a lado (Human coding | AI coding). */
+.quality-check-overlay .qc-compare {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border: 1px solid rgb(237, 241, 243);
+    border-radius: 8px;
 }
 
-.quality-check-overlay .qc-coded-as {
+.quality-check-overlay .qc-compare-col {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+    padding: 10px 12px;
+}
+
+.quality-check-overlay .qc-compare-col + .qc-compare-col {
+    border-left: 1px solid rgb(237, 241, 243);
+}
+
+.quality-check-overlay .qc-compare-title {
     font-size: 12px;
     font-weight: 500;
     letter-spacing: 0.02em;
     color: rgb(106, 130, 141);
+}
+
+.quality-check-overlay .qc-compare-empty {
+    font-size: 12px;
+    line-height: 26px;
+    color: rgb(140, 154, 161);
+}
+
+/* === Versão VENN: três colunas (Human only | Both | AI only). Reaproveita as
+   colunas da versão COLUMNS. */
+.quality-check-overlay .qc-compare--venn {
+    grid-template-columns: 1fr 1fr 1fr;
+}
+
+/* === Versão LANES: faixas Human / AI com os codes alinhados por coluna. */
+.quality-check-overlay .qc-lanes-scroll {
+    overflow-x: auto;
+}
+
+.quality-check-overlay .qc-lanes {
+    display: inline-grid;
+    align-items: center;
+    column-gap: 6px;
+    row-gap: 6px;
+}
+
+.quality-check-overlay .qc-lanes-label {
+    padding-right: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    color: rgb(106, 130, 141);
+}
+
+/* Chip ocupa a largura da coluna, para o vazio do outro lado ter o mesmo
+   tamanho. */
+.quality-check-overlay .qc-lanes .qc-code-chip {
+    justify-content: center;
+}
+
+/* Espaço vazio: mesmo tamanho do chip, contorno tracejado. */
+.quality-check-overlay .qc-lane-empty {
+    height: 26px;
+    border: 1px dashed rgb(173, 181, 189);
+    border-radius: 4px;
+    background-color: rgb(248, 249, 250);
+}
+
+/* === Versão TABLE: uma linha por code, com ✓ / — em Human e AI. */
+.quality-check-overlay .qc-code-table {
+    width: 100%;
+    max-width: 480px;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 13px;
+    color: rgb(0, 27, 61);
+    border: 1px solid rgb(237, 241, 243);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.quality-check-overlay .qc-code-table th {
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    text-align: left;
+    color: rgb(106, 130, 141);
+    background-color: rgb(246, 248, 249);
+    border-bottom: 1px solid rgb(237, 241, 243);
+}
+
+.quality-check-overlay .qc-code-table td {
+    padding: 6px 12px;
+    line-height: 18px;
+    border-bottom: 1px solid rgb(237, 241, 243);
+}
+
+.quality-check-overlay .qc-code-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+/* Colunas Human/AI estreitas e centralizadas. */
+.quality-check-overlay .qc-code-table th:not(:first-child),
+.quality-check-overlay .qc-code-table td:not(:first-child) {
+    width: 72px;
+    text-align: center;
+}
+
+.quality-check-overlay .qc-code-table td svg {
+    vertical-align: middle;
+    color: rgb(35, 42, 46);
+}
+
+.quality-check-overlay .qc-code-table-none {
+    color: rgb(160, 172, 178);
+}
+
+/* Linha com diferença — âmbar (mesma cor da legenda). */
+.quality-check-overlay .qc-code-table tr.is-diff td {
+    background-color: rgb(254, 243, 224);
+}
+
+.quality-check-overlay .qc-code-table tr.is-diff td:first-child {
+    box-shadow: inset 3px 0 0 rgb(217, 119, 6);
 }
 
 /* Linha de chips — uma resposta pode ter vários codes. */
@@ -230,6 +348,7 @@
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
+    min-width: 0;
 }
 
 /* Chip como o codes modal do Ascribe: caixa branca sem borda esquerda,
@@ -250,7 +369,6 @@
     line-height: 18px;
     color: rgb(33, 37, 41);
     text-align: center;
-    box-sizing: border-box;
 }
 
 /* Barra roxa flush à esquerda, altura total do chip. */
@@ -265,169 +383,197 @@
     border-radius: 4px 0 0 4px;
 }
 
-/* Chip "Uncoded Idea": a AI não codificou a resposta — barra vermelha. */
-.quality-check-overlay .qc-code-chip--uncoded::before {
+/* Code aplicado por só um dos lados — âmbar (mesma cor da legenda). */
+.quality-check-overlay .qc-code-chip--diff {
+    background-color: rgb(254, 243, 224);
+    border-color: rgb(245, 214, 160);
+}
+
+.quality-check-overlay .qc-code-chip--diff::before {
+    background-color: rgb(217, 119, 6);
+}
+
+/* Trecho do verbatim que justifica o code com diferença (Per difference / By
+   code). */
+.quality-check-overlay .qc-evidence {
+    padding: 0 2px;
+    color: inherit;
+    background-color: rgb(255, 240, 179);
+    border-radius: 3px;
+}
+
+/* === Versão PER DIFFERENCE: linha "Both applied" (codes em comum) + uma
+   linha por diferença ("AI missed X" / "AI added X") com "Does it apply?". */
+.quality-check-overlay .qc-delta-list {
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid rgb(237, 241, 243);
+}
+
+.quality-check-overlay .qc-delta-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+}
+
+.quality-check-overlay .qc-delta-row + .qc-delta-row {
+    border-top: 1px solid rgb(237, 241, 243);
+}
+
+.quality-check-overlay .qc-delta-statement {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.quality-check-overlay .qc-delta-kind {
+    font-size: 13px;
+    font-weight: 600;
+    color: rgb(35, 42, 46);
+    white-space: nowrap;
+}
+
+/* === Versão ANSWER KEY: codificação da AI corrigida pelo gabarito humano. */
+.quality-check-overlay .qc-instruction {
+    margin: -4px 0 8px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: rgb(69, 86, 95);
+}
+
+.quality-check-overlay .qc-legend-chip {
+    padding: 0 8px;
+    font-size: 11px;
+    line-height: 16px;
+}
+
+.quality-check-overlay .qc-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-right: 10px;
+}
+
+.quality-check-overlay .qc-answer-key-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.quality-check-overlay .qc-answer-key-label {
+    flex: 0 0 auto;
+    padding-top: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 18px;
+    letter-spacing: 0.02em;
+    color: rgb(106, 130, 141);
+}
+
+.quality-check-overlay .qc-answer-key-row .qc-chips {
+    flex: 1 1 auto;
+}
+
+/* Faltou (a AI deveria ter aplicado): chip "fantasma", contorno tracejado. */
+.quality-check-overlay .qc-code-chip--missed {
+    color: rgb(69, 86, 95);
+    background-color: transparent;
+    border: 1px dashed rgb(106, 130, 141);
+    border-radius: 4px;
+}
+
+.quality-check-overlay .qc-code-chip--missed::before {
+    display: none;
+}
+
+/* Sobrou (a AI aplicou e não deveria): texto riscado em vermelho. */
+.quality-check-overlay .qc-code-chip--added {
+    color: rgb(140, 32, 32);
+    text-decoration: line-through;
+    background-color: rgb(250, 233, 233);
+    border-color: rgb(240, 196, 196);
+}
+
+.quality-check-overlay .qc-code-chip--added::before {
     background-color: rgb(200, 55, 55);
 }
 
-/* Ações approve/reject. */
-.quality-check-overlay .qc-item-actions {
+/* Exceção "AI is right" — checkbox à direita da linha. */
+.quality-check-overlay .qc-exception {
+    display: inline-flex;
     flex: 0 0 auto;
+    align-items: center;
+    gap: 6px;
+    padding-top: 3px;
+    font-size: 13px;
+    color: rgb(35, 42, 46);
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.quality-check-overlay .qc-exception input {
+    margin: 0;
+    accent-color: rgb(85, 25, 138);
+    cursor: pointer;
+}
+
+/* Resposta marcada como exceção: os erros perdem ênfase (não serão
+   refinados). */
+.quality-check-overlay .qc-item--excepted .qc-code-chip--missed,
+.quality-check-overlay .qc-item--excepted .qc-code-chip--added {
+    opacity: 0.45;
+}
+
+/* === Versão BY CODE: um card por code, com exemplos de verbatim. */
+.quality-check-overlay .qc-group-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.quality-check-overlay .qc-group-summary {
+    font-size: 13px;
+    font-weight: 600;
+    color: rgb(35, 42, 46);
+}
+
+.quality-check-overlay .qc-group-examples {
+    list-style: none;
+    margin: 0;
+    padding: 0;
     display: flex;
     flex-direction: column;
     gap: 6px;
 }
 
-/* === Versão BOTTOM: Applied codes e decisão na mesma linha (rodapé). === */
-.quality-check-overlay .qc-list--bottom .qc-item-row {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
-}
-
-.quality-check-overlay .qc-list--bottom .qc-item-footer {
+/* Cada exemplo como citação: barra cinza à esquerda. */
+.quality-check-overlay .qc-group-examples > li {
     display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 16px;
-    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 8px;
+    padding-left: 10px;
+    border-left: 2px solid rgb(224, 230, 234);
 }
 
-.quality-check-overlay .qc-list--bottom .qc-item-footer .qc-item-coding {
-    margin-top: 0;
+/* Validação por resposta ("Who is right?"): label + segmented control. */
+.quality-check-overlay .qc-decision-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-top: 10px;
+    border-top: 1px solid rgb(237, 241, 243);
 }
 
-/* Label acima dos botões — mesmo estilo do "Applied codes". */
-.quality-check-overlay .qc-actions-label {
+.quality-check-overlay .qc-decision-label {
     font-size: 12px;
     font-weight: 500;
     letter-spacing: 0.02em;
     color: rgb(106, 130, 141);
 }
 
-/* === Versão TOP RIGHT: decisão no canto superior direito, divisória vertical. */
-.quality-check-overlay .qc-list--rail .qc-item-row {
-    flex-direction: row;
-    align-items: flex-start;
-    gap: 16px;
-}
-
-.quality-check-overlay .qc-list--rail .qc-item-actions {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-}
-
-/* === Versão STACKED: decisão empilhada abaixo do Applied codes, à esquerda. */
-.quality-check-overlay .qc-list--stack .qc-item-row {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
-}
-
-.quality-check-overlay .qc-list--stack .qc-item-actions {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 6px;
-}
-
-
-/* Campo de motivo (opcional), aberto sob a resposta rejeitada. Painel cinza
-   claro, com label e textarea; sem botão nem texto auxiliar. */
-.quality-check-overlay .qc-reason {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 14px;
-    background-color: rgb(247, 249, 250);
-    border: 1px solid rgb(230, 234, 237);
-    border-radius: 8px;
-}
-
-.quality-check-overlay .qc-reason-label {
-    font-size: 13px;
-    font-weight: 600;
-    color: rgb(35, 42, 46);
-}
-
-.quality-check-overlay .qc-reason-optional {
-    font-weight: 400;
-    color: rgb(140, 154, 161);
-}
-
-.quality-check-overlay .qc-reason-input {
-    width: 100%;
-    padding: 8px 10px;
-    font-family: Figtree, sans-serif;
-    font-size: 13px;
-    line-height: 18px;
-    color: rgb(0, 27, 61);
-    background-color: rgb(255, 255, 255);
-    border: 1px solid rgb(214, 221, 225);
-    border-radius: 6px;
-    resize: vertical;
-}
-
-.quality-check-overlay .qc-reason-input::placeholder {
-    color: rgb(160, 172, 178);
-}
-
-.quality-check-overlay .qc-reason-input:focus-visible {
-    outline: rgb(142, 46, 239) solid 2px;
-    outline-offset: 1px;
-    border-color: rgb(142, 46, 239);
-}
-
-/* Botões de decisão: mesma base dos botões secundários do footer; quando
-   ativos ganham um tom verde (looks right) ou vermelho (looks wrong). O ícone
-   Phosphor herda a cor do botão (currentColor). */
-.quality-check-overlay .qc-decision {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    min-width: 132px;
-    padding: 0.375rem 0.75rem;
-    font-family: Figtree, sans-serif;
-    font-size: 14px;
-    font-weight: 400;
-    line-height: 1.5;
-    color: rgb(35, 42, 46);
-    background-color: rgb(255, 255, 255);
-    border: 1px solid rgb(136, 158, 168);
-    border-radius: 8px;
-    cursor: pointer;
-    transition: background-color 140ms, border-color 140ms, color 140ms, box-shadow 140ms;
-}
-
-.quality-check-overlay .qc-decision svg {
-    flex: 0 0 auto;
-}
-
-.quality-check-overlay .qc-decision:not(.is-active):hover {
-    color: rgb(52, 58, 64);
-    background-color: rgb(248, 249, 250);
-    border-color: rgb(173, 181, 189);
-}
-
-.quality-check-overlay .qc-decision--approve.is-active {
-    color: rgb(21, 87, 51);
-    background-color: rgb(223, 245, 231);
-    border-color: rgb(34, 153, 84);
-}
-
-.quality-check-overlay .qc-decision--reject.is-active {
-    color: rgb(140, 32, 32);
-    background-color: rgb(250, 233, 233);
-    border-color: rgb(200, 55, 55);
-}
-
-.quality-check-overlay .qc-decision:focus-visible {
-    outline: rgb(142, 46, 239) solid 2px;
-    outline-offset: 2px;
-}
-
-/* Segmented control: junta os dois botões num controle único e compacto. */
 .quality-check-overlay .qc-segment {
     display: inline-flex;
     border: 1px solid rgb(206, 212, 218);
@@ -435,22 +581,36 @@
     overflow: hidden;
 }
 
-.quality-check-overlay .qc-segment .qc-decision {
-    min-width: 0;
+.quality-check-overlay .qc-decision {
     height: 32px;
     padding: 0 12px;
-    gap: 6px;
+    font-family: Figtree, sans-serif;
     font-size: 12px;
     font-weight: 500;
+    color: rgb(35, 42, 46);
+    background-color: rgb(255, 255, 255);
     border: 0;
-    border-radius: 0;
+    cursor: pointer;
+    transition: background-color 140ms, color 140ms;
 }
 
-.quality-check-overlay .qc-segment .qc-decision + .qc-decision {
+.quality-check-overlay .qc-decision + .qc-decision {
     border-left: 1px solid rgb(206, 212, 218);
 }
 
-.quality-check-overlay .qc-segment .qc-decision:focus-visible {
+.quality-check-overlay .qc-decision:not(.is-active):hover {
+    background-color: rgb(248, 249, 250);
+}
+
+/* Ativo em roxo neutro: nenhuma das opções é "certa" ou "errada" por si. */
+.quality-check-overlay .qc-decision.is-active {
+    color: rgb(85, 25, 138);
+    background-color: rgb(245, 240, 255);
+    box-shadow: inset 0 0 0 1px rgb(142, 46, 239);
+}
+
+.quality-check-overlay .qc-decision:focus-visible {
+    outline: rgb(142, 46, 239) solid 2px;
     outline-offset: -2px;
 }
 
@@ -490,19 +650,6 @@
     transition: background-color 140ms, border-color 140ms, color 140ms, box-shadow 140ms;
 }
 
-.quality-check-overlay .qc-btn--secondary {
-    color: rgb(73, 80, 87);
-    background-color: rgb(255, 255, 255);
-    border-color: rgb(206, 212, 218);
-    border-radius: 8px;
-}
-
-.quality-check-overlay .qc-btn--secondary:hover {
-    color: rgb(52, 58, 64);
-    background-color: rgb(248, 249, 250);
-    border-color: rgb(173, 181, 189);
-}
-
 .quality-check-overlay .qc-btn--primary {
     color: rgb(255, 255, 255);
     background-color: rgb(85, 25, 138);
@@ -522,8 +669,8 @@
     box-shadow: rgba(0, 0, 0, 0.12) 0px 1px 2px inset;
 }
 
-/* Desabilitado até a primeira decisão (Looks right/wrong) do revisor.
-   Mesmo cinza do primary disabled dos demais modais (Generate codebook rules). */
+/* Desabilitado até todas as respostas terem decisão. Mesmo cinza do primary
+   disabled dos demais modais (Generate codebook rules). */
 .quality-check-overlay .qc-btn--primary:disabled {
     color: rgb(136, 158, 168);
     background-color: rgb(214, 221, 225);

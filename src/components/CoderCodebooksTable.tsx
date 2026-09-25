@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowBendUpRight, LinkBreak, ListChecks, Columns, MagicWand } from '@phosphor-icons/react';
 import { color, font, radius, space } from '../tokens';
-import RecreateCodebookModal from './RecreateCodebookModal';
+import RecreateCodebookModal, { type TrainingQuestion } from './RecreateCodebookModal';
 import GenerateRulesProcessingModal from './GenerateRulesProcessingModal';
 import AccountCodebookRulesModal from './AccountCodebookRulesModal';
 
@@ -201,6 +201,8 @@ function CoderCodebooksTable({
     // `generatedFromCodebook` guarda o codebook de origem ao longo das etapas de
     // processing e rules (o recreate é fechado ao iniciar o processing).
     const [generatedFromCodebook, setGeneratedFromCodebook] = useState<string | null>(null);
+    // Perguntas selecionadas no Recreate — base do seletor de amostra do QC.
+    const [trainingQuestions, setTrainingQuestions] = useState<TrainingQuestion[]>([]);
     const [processingOpen, setProcessingOpen] = useState(false);
     const [rulesOpen, setRulesOpen] = useState(false);
 
@@ -351,11 +353,12 @@ function CoderCodebooksTable({
         <RecreateCodebookModal
             isOpen={recreateCodebookName !== null}
             onClose={() => setRecreateCodebookName(null)}
-            onGenerate={() => {
+            onGenerate={(questions) => {
                 // Abre o processamento por cima; o RecreateCodebookModal segue
                 // aberto atrás (visível pelo overlay), preservando o codebook de
-                // origem para as próximas etapas.
+                // origem e as perguntas selecionadas para as próximas etapas.
                 setGeneratedFromCodebook(recreateCodebookName);
+                setTrainingQuestions(questions);
                 setProcessingOpen(true);
             }}
             sourceCodebookName={recreateCodebookName ?? ''}
@@ -378,6 +381,7 @@ function CoderCodebooksTable({
         />
         <AccountCodebookRulesModal
             isOpen={rulesOpen}
+            sampleQuestions={trainingQuestions}
             onClose={() => {
                 setRulesOpen(false);
                 setGeneratedFromCodebook(null);

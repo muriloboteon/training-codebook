@@ -68,6 +68,9 @@ a Figma variable (e.g. `button/primary/bg/hover`), map it to a token here rather
 hex. Import from `tokens.ts` instead of hardcoding hex values / font strings. When adding UI, reuse
 existing tokens; only add a new token when no existing one fits.
 
+**Never use a 13px font size** (including `font.size.smd`). Use 12px (`font.size.sm`) or 14px
+(`font.size.md`) instead.
+
 Note: `statusPalette` / `getStatusColors` / `Status` remain defined but are currently unused (the old
 STATUS column was replaced by the Codebooks columns). Leave them unless a status UI is reintroduced.
 

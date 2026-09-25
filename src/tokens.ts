@@ -21,6 +21,7 @@ export const font = {
         md: "14px",   // body / cells
         lg: "16px",
         xl: "18px",   // dialog titles
+        display: "28px", // números de destaque (cards de resumo)
     },
     weight: {
         regular: 400,
@@ -65,7 +66,7 @@ export const color = {
     brandDark: "#36096C",    // link (estado padrão)
     brandStrong: "#57149E",  // link (estado normal após hover)
     brandHover: "#6C16C7",   // link (hover)
-
+    codeChipAccent: "#8E2EEF", // barra lateral dos chips de code (Ascribe, rgb(142, 46, 239))
     // Superfícies
     surface: "#FFFFFF",      // fundo padrão
     surfaceMuted: "#F9FAFB", // linhas zebradas
@@ -92,16 +93,18 @@ export const color = {
     borderSubtle: "#EAECEF", // divisórias internas de célula
     borderInput: "#D6DDE1",  // border/default (divisória da sub-header)
     borderControl: "#889EA8",// borda de inputs/botões (input/button border)
-
+    borderCard: "#E0E6EA",   // borda dos cards de resposta do Quality Check — rgb(224, 230, 234)
     // Texto
     text: "#374151",         // corpo / células
     textStrong: "#1F2937",   // títulos
     textDark: "#232A2E",     // texto de botão neutro
     textMuted: "#6B7280",    // cabeçalhos de coluna, texto secundário
     textSubtle: "#6A828D",   // texto de apoio esmaecido (ex.: "(optional)")
+    textSecondary: "#45565F", // text/secondary_1 (itens de menu do Select Field)
     textFaint: "#9CA3AF",    // texto desabilitado / placeholder
     textPlaceholder: "#889EA8", // placeholder de inputs (input/text/placeholder)
     textHeaderGroup: "#3C4950", // cabeçalho de grupo
+    textVerbatim: "#001B3D",  // texto de resposta (verbatim) no Quality Check — rgb(0, 27, 61)
 
     // Semânticas
     success: "#16A34A",
@@ -114,6 +117,7 @@ export const color = {
     amberSoft: "#FEF3C7",
     teal: "#0D9488",
     tealSoft: "#CCFBF1",
+    plum: "#86198F",         // série "Different codes" do Quality Check V2 (fuchsia-800; validada p/ daltonismo vs amber/info/teal)
     infoSoft: "#DBEAFE",
     dangerSoft: "#FEE2E2",   // hover do ícone de excluir (red-100)
     brandSoft: "#F3E8FF",    // hover do ícone de colunas (purple-100)
@@ -124,7 +128,9 @@ export const color = {
 // ---------------------------------------------------------------------------
 export const shadow = {
     dropdown: "0 4px 12px rgba(0, 0, 0, 0.15)",
+    menu: "0 8px 24px rgba(0, 0, 0, 0.12)", // lista aberta do Select Field (Figma)
     modal: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+    control: "0 1px 2px rgba(0, 0, 0, 0.08)", // opção ativa de segmented control
 } as const;
 
 // ---------------------------------------------------------------------------

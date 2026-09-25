@@ -2,8 +2,11 @@ import { useEffect, useReducer, useRef, useState } from 'react';
 import { SealCheck } from '@phosphor-icons/react';
 import './accountCodebookRulesModal.css';
 import QualityCheckPanel from './QualityCheckPanel';
+import QualityCheckSampleModal from './QualityCheckSampleModal';
+import QualityCheckV2 from './QualityCheckV2';
 import GenerateRulesProcessingModal from './GenerateRulesProcessingModal';
 import ModalButton from './ModalButton';
+import type { TrainingQuestion } from './RecreateCodebookModal';
 
 // -----------------------------------------------------------------------------
 // AccountCodebookRulesModal — tela de revisão de codes do fluxo "Generate
@@ -28,6 +31,9 @@ import ModalButton from './ModalButton';
 
 interface AccountCodebookRulesModalProps {
     isOpen: boolean;
+    /** Perguntas selecionadas no Recreate — opções do seletor de amostra do QC.
+     *  Com uma só, o seletor é pulado. */
+    sampleQuestions?: TrainingQuestion[];
     onClose: () => void;
     /** Chamado ao concluir — o pai cria o registro na tabela do AI Coder e fecha
      *  este modal. `trained` diz se o codebook passou pelo Quality Check: quando
@@ -252,7 +258,7 @@ function historyReducer(state: HistoryState, action: HistoryAction): HistoryStat
     }
 }
 
-function AccountCodebookRulesModal({ isOpen, onClose, onCreate }: AccountCodebookRulesModalProps) {
+function AccountCodebookRulesModal({ isOpen, sampleQuestions = [], onClose, onCreate }: AccountCodebookRulesModalProps) {
     // Controla a exibição das descrições (code rules). Ligado ao checkbox
     // "Code rules" do header: marcado mostra a 2ª linha de cada code,
     // desmarcado deixa só o label.
@@ -398,37 +404,64 @@ function AccountCodebookRulesModal({ isOpen, onClose, onCreate }: AccountCodeboo
     };
 
     // ---- Quality Check -----------------------------------------------------
-    // Fase do QC: 'idle' (nada rodando), 'running' (loading ~2–3s simulado) e
-    // 'reviewing' (painel de revisão do sample aberto por cima do modal).
     // OPEN: mecânica do QC (opt-in vs. sempre acionável). Default do protótipo:
     // botão acionável, disparado manualmente.
-    // Fases do QC: idle → running (processamento inicial) → reviewing (revisão do
-    // sample) → applying (processamento que "aprende" com as marcações right/wrong
-    // e ajusta as regras) → idle (de volta ao codebook, com os codes realçados).
-    const [qcPhase, setQcPhase] = useState<'idle' | 'running' | 'reviewing' | 'applying'>('idle');
-    // Se o QC já rodou ao menos uma vez nesta sessão do modal (muda a ação de
-    // conclusão para "Done" e nomeia o resultado como "… – AI trained").
+    // Fases do QC: idle → selecting (escolha da pergunta da amostra; pulada com
+    // uma pergunta só) → running (processamento inicial) → reviewing (relatório
+    // de diferenças humano vs. AI, validado resposta a resposta) → applying
+    // (processamento que refaz as regras, só se alguma resposta foi marcada
+    // "Human is right") → idle (de volta ao codebook).
+    // 'v2' = experiência QualityCheckV2 aberta (ela controla o próprio fluxo).
+    const [qcPhase, setQcPhase] = useState<'idle' | 'selecting' | 'running' | 'reviewing' | 'applying' | 'v2'>('idle');
+    // Qual versão do QC foi disparada. Hoje só a V2 tem botão (a V1 está oculta,
+    // mas mantida no código). As duas compartilham o seletor de amostra e o
+    // processamento; depois dele, V1 segue reviewing → applying e V2 abre
+    // QualityCheckV2. Remover junto com a V1 quando ela for descartada de vez.
+    const [qcVariant, setQcVariant] = useState<'v1' | 'v2'>('v1');
+    // V2: cada nova rodada remonta o QualityCheckV2 (via key) para começar com
+    // decisões/filtros limpos.
+    const [v2RunId, setV2RunId] = useState(0);
+    // Se o QC já rodou ao menos uma vez nesta sessão do modal (nomeia o resultado
+    // como "… – AI trained"), com ou sem regras refinadas.
     const [qcCompleted, setQcCompleted] = useState(false);
     // Labels dos codes cujas regras foram refinadas pelo QC (para realce + badge).
     const [refinedLabels, setRefinedLabels] = useState<Set<string>>(new Set());
-    // Codes a refinar, capturados ao clicar "Finish" na revisão. Ficam pendentes
-    // enquanto o modal de processamento roda; o refino é aplicado ao concluir.
+    // Codes a refinar, capturados em "Apply decisions" no relatório. Ficam
+    // pendentes enquanto o modal de processamento roda; o refino é aplicado ao
+    // concluir.
     const [pendingRefineCodes, setPendingRefineCodes] = useState<string[]>([]);
+    // Pergunta em que a amostra roda (exibida no header do relatório).
+    const [sampleQuestion, setSampleQuestion] = useState<TrainingQuestion | null>(null);
 
-    const runQualityCheck = () => {
-        // Abre o modal de processamento (fase 'running'). Ele controla o tempo
-        // simulado e, ao terminar, avança para 'reviewing' via onComplete.
+    const runQualityCheck = (variant: 'v1' | 'v2') => {
+        setQcVariant(variant);
+        // Com mais de uma pergunta no treino, o usuário escolhe a amostra antes;
+        // com uma só, pula o seletor. As duas versões passam pelo processamento
+        // (fase 'running'), que controla o tempo simulado e, via onComplete,
+        // abre o relatório da V1 ('reviewing') ou a experiência da V2 ('v2').
+        if (sampleQuestions.length > 1) {
+            setQcPhase('selecting');
+            return;
+        }
+        setSampleQuestion(sampleQuestions[0] ?? null);
+        if (variant === 'v2') setV2RunId((n) => n + 1);
         setQcPhase('running');
     };
 
-    // Conclusão da revisão do sample: refina em lote as regras dos codes com
-    // itens rejeitados e realça as linhas alteradas, preservando a ordem
-    // original (edita in place em `rows`).
+    // Validação concluída sem nada a refinar (todas "AI is right"): aceita as
+    // diferenças sem alterar regras. Conta como QC concluído (o codebook criado
+    // depois é nomeado "… – AI trained").
+    const acceptQualityCheck = () => {
+        setQcCompleted(true);
+        setQcPhase('idle');
+    };
+
+    // Conclusão do processamento de refino: refina em lote as regras dos codes
+    // das respostas marcadas "Human is right" (faltantes + extras) e realça as
+    // linhas alteradas, preservando a ordem original (edita in place em `rows`).
     const applyQualityCheck = (codesToRefine: string[]) => {
         const codeSet = new Set(codesToRefine);
         if (codeSet.size > 0) {
-            // OPEN: refinar em lote ao concluir a revisão vs. atualizar cada regra
-            // na hora em que o item é rejeitado. Default do protótipo: em lote.
             const nextRows = rows.map((row) => {
                 if (row.kind !== 'code' || !codeSet.has(row.label)) return row;
                 if (row.rule.includes(REFINE_MARKER)) return row; // não reanexa em re-runs
@@ -513,15 +546,9 @@ function AccountCodebookRulesModal({ isOpen, onClose, onCreate }: AccountCodeboo
 
                     {/* Body */}
                     <div className="modal-body">
-                        {/* Subtítulo: orienta o usuário sobre a tela e sinaliza que os
-                            textos (label/rule) são editáveis clicando neles. Fica dentro
-                            da área de scroll, rolando junto com a lista. */}
-                        <p className="codebookModalSubtitle">
-                            Review and refine your codebook. Click any code or rule to edit.
-                        </p>
-
                         {/* Callout do Quality Check — tira a ação da barra de botões e
                             dá contexto do que a feature faz, tornando-a mais visível.
+                            Fica no topo do corpo, acima do subtítulo.
                             O botão troca de estado: idle → running → completed (Re-run). */}
                         <div className="codebookQualityCheckCallout">
                             <span className="codebookQualityCheckCallout-icon" aria-hidden="true">
@@ -532,19 +559,30 @@ function AccountCodebookRulesModal({ isOpen, onClose, onCreate }: AccountCodeboo
                                     Quality check
                                 </span>
                                 <span className="codebookQualityCheckCallout-desc">
-                                    Apply the trained codebook to a real sample and review how the AI codes it before you create the codebook.
+                                    Apply the trained codebook to a real sample and compare how the AI codes it with the manual coding before you create the codebook.
                                 </span>
                             </div>
+                            {/* Única entrada do QC: abre a experiência V2. A V1
+                                (QualityCheckPanel: running → reviewing → applying) está
+                                OCULTA — o código segue aqui, mas nenhum botão a dispara.
+                                Para reexibir, volte a chamar runQualityCheck('v1'). */}
                             <ModalButton
                                 variant="secondary"
-                                onClick={runQualityCheck}
+                                onClick={() => runQualityCheck('v2')}
                                 disabled={qcPhase !== 'idle'}
-                                title="Apply the trained codebook to a sample and review the AI coding"
+                                title="Apply the trained codebook to a sample and compare the AI coding with the manual coding"
                                 style={{ flexShrink: 0 }}
                             >
                                 Run quality check
                             </ModalButton>
                         </div>
+
+                        {/* Subtítulo: orienta o usuário sobre a tela e sinaliza que os
+                            textos (label/rule) são editáveis clicando neles. Fica dentro
+                            da área de scroll, rolando junto com a lista. */}
+                        <p className="codebookModalSubtitle">
+                            Review and refine your codebook. Click any code or rule to edit.
+                        </p>
 
                         <div className="form-group">
                             {/* Container não editável; os textos internos (net,
@@ -702,42 +740,89 @@ function AccountCodebookRulesModal({ isOpen, onClose, onCreate }: AccountCodeboo
             </div>
         </div>
 
+        {/* Seletor de amostra — só quando o treino usou mais de uma pergunta.
+            Escolhida a pergunta, segue para o processamento. */}
+        <QualityCheckSampleModal
+            isOpen={qcPhase === 'selecting'}
+            questions={sampleQuestions}
+            onRun={(question) => {
+                setSampleQuestion(question);
+                if (qcVariant === 'v2') setV2RunId((n) => n + 1);
+                setQcPhase('running');
+            }}
+            onCancel={() => setQcPhase('idle')}
+        />
+
+        {/* TEMPORÁRIO: nova experiência do QC (V2), independente da V1. Fica
+            FORA do overlay do modal pelo mesmo motivo do painel da V1.
+            "Update rules" passa pelo processamento pós-relatório (applying) e,
+            ao concluir, reaproveita o refino do pai (applyQualityCheck: tag
+            Refined nos codes afetados); "Keep rules and continue" conclui o QC
+            sem mudanças e sem processamento. */}
+        <QualityCheckV2
+            key={v2RunId}
+            isOpen={qcPhase === 'v2'}
+            sampleQuestion={sampleQuestion}
+            onUpdateRules={(codes) => {
+                setPendingRefineCodes(codes);
+                setQcPhase('applying');
+            }}
+            onKeepRules={acceptQualityCheck}
+            onCancel={() => setQcPhase('idle')}
+        />
+
         {/* Processamento do Quality Check — reusa o mesmo modal de processamento do
             fluxo "Generate rules" (mesmo tamanho/altura/chrome), só com o texto
-            ajustado. Ao concluir, avança para a revisão do sample. */}
+            ajustado. Ao concluir, abre o relatório de diferenças (V1) ou a
+            experiência da V2. */}
         <GenerateRulesProcessingModal
             isOpen={qcPhase === 'running'}
-            onComplete={() => setQcPhase('reviewing')}
+            onComplete={() => setQcPhase(qcVariant === 'v2' ? 'v2' : 'reviewing')}
             onCancel={() => setQcPhase('idle')}
             ariaLabel="Running quality check"
             title="Running quality check…"
             subtitle="We are applying your codebook to a sample of responses and reviewing the AI coding."
         />
 
-        {/* Painel de revisão do sample (novo componente). Fica FORA do overlay do
-            modal para o clique no seu backdrop não fechar o modal inteiro. Ao clicar
-            "Finish", captura os codes marcados e vai para o processamento (applying);
-            o refino só é aplicado quando esse processamento termina. */}
+        {/* Relatório de diferenças humano vs. AI, validado resposta a resposta.
+            Fica FORA do overlay do modal para o clique no seu backdrop não fechar o
+            modal inteiro. Em "Apply decisions": se nenhuma resposta foi marcada
+            "Human is right", não há o que refinar e volta direto ao codebook; senão
+            captura os codes e vai para o processamento (applying) — o refino só é
+            aplicado quando esse processamento termina. */}
         <QualityCheckPanel
             isOpen={qcPhase === 'reviewing'}
+            sampleQuestion={sampleQuestion}
             onCancel={() => setQcPhase('idle')}
             onApply={(codes) => {
+                if (codes.length === 0) {
+                    acceptQualityCheck();
+                    return;
+                }
                 setPendingRefineCodes(codes);
                 setQcPhase('applying');
             }}
         />
 
-        {/* Processamento pós-revisão — a IA "aprende" com o que foi marcado
-            right/wrong e ajusta os codes/regras. Mesmo modal/tamanho do primeiro
-            processamento, com texto próprio. Ao concluir, aplica o refino e volta
-            ao codebook com as regras reajustadas realçadas. */}
+        {/* Processamento pós-relatório — refaz as regras dos codes com diferença.
+            Mesmo modal/tamanho do primeiro processamento, com texto próprio por
+            versão. Ao concluir, aplica o refino e volta ao codebook com a tag
+            Refined. */}
         <GenerateRulesProcessingModal
             isOpen={qcPhase === 'applying'}
             onComplete={() => applyQualityCheck(pendingRefineCodes)}
             onCancel={() => setQcPhase('idle')}
-            ariaLabel="Applying your feedback"
-            title="Applying your feedback…"
-            subtitle="We're reviewing what you marked right and wrong to adjust the codebook rules."
+            {...(qcVariant === 'v2'
+                ? {
+                    ariaLabel: 'Updating code rules',
+                    title: 'Updating code rules…',
+                    subtitle: 'The AI is analyzing your review and rewriting the code rules.',
+                }
+                : {
+                    ariaLabel: 'Applying your feedback',
+                    title: 'Applying your feedback…',
+                    subtitle: "We're reviewing what you marked right and wrong to adjust the codebook rules.",
+                })}
         />
         </>
     );

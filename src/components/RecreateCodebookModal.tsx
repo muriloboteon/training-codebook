@@ -179,7 +179,7 @@ const STUDIES: Study[] = STUDY_SEEDS.map((seed, i) => ({
 // ---------------------------------------------------------------------------
 // Ordenação (sort) — chaves por coluna e comparadores.
 // ---------------------------------------------------------------------------
-type SortDir = 'asc' | 'desc';
+export type SortDir = 'asc' | 'desc';
 type StudySortKey = 'name' | 'status' | 'questions' | 'responses';
 type QuestionSortKey = 'text' | 'type' | 'responses';
 
@@ -208,8 +208,9 @@ function compareQuestions(a: StudyQuestion, b: StudyQuestion, key: QuestionSortK
 }
 
 // Cabeçalho clicável com indicador de ordenação. Colunas não ordenáveis
-// (checkbox/expander) continuam usando <span>.
-function SortHeader({
+// (checkbox/expander) continuam usando <span>. Reusado pela tabela By code
+// do QualityCheckV2.
+export function SortHeader({
     label,
     align = 'left',
     active,
@@ -264,13 +265,22 @@ function SortHeader({
 // mesma altura, de modo que a transição não mude o tamanho do modal.
 export const INSTRUCTIONS_MODAL_HEIGHT = 360;
 
+/** Pergunta selecionada no Recreate. Segue adiante no fluxo: é a base do
+ *  seletor de amostra do Quality Check (só as perguntas usadas no treino). */
+export interface TrainingQuestion {
+    id: string;
+    text: string;
+    studyName: string;
+    responses: number;
+}
+
 interface RecreateCodebookModalProps {
     isOpen: boolean;
     onClose: () => void;
-    /** Chamado ao confirmar "Generate" no modal de Instructions. O pai abre a
-     *  etapa de processamento por cima; este modal permanece aberto atrás,
-     *  visível pelo overlay do processamento. */
-    onGenerate: () => void;
+    /** Chamado ao confirmar "Generate" no modal de Instructions, com as
+     *  perguntas selecionadas. O pai abre a etapa de processamento por cima;
+     *  este modal permanece aberto atrás, visível pelo overlay do processamento. */
+    onGenerate: (questions: TrainingQuestion[]) => void;
     sourceCodebookName: string;
 }
 
@@ -819,7 +829,13 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
                                     // fecha esta etapa e o RecreateCodebookModal segue aberto
                                     // atrás (visível pelo overlay do processamento).
                                     setShowInstructions(false);
-                                    onGenerate();
+                                    onGenerate(
+                                        studies.flatMap((s) =>
+                                            s.questions
+                                                .filter((q) => selectedSet.has(q.id))
+                                                .map((q) => ({ id: q.id, text: q.text, studyName: s.name, responses: q.responses })),
+                                        ),
+                                    );
                                 }}
                             >
                                 Generate

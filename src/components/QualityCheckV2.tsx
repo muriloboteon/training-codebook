@@ -286,8 +286,9 @@ function QualityCheckV2({
                         {/* Painel de resumo (fundo cinza claro, cards brancos): a
                             pergunta da amostra funciona como título do bloco. */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: space.md, padding: space.lg, border: `1px solid ${color.border}`, borderRadius: radius.lg, backgroundColor: color.surfaceSubtle }}>
-                            {/* 2. Amostra (só a pergunta e o nº de respostas) */}
+                            {/* 2. Amostra (label + pergunta + nº de respostas) */}
                             <p style={{ margin: 0, fontSize: font.size.md, lineHeight: '20px' }}>
+                                <span style={{ color: color.textMuted }}>Question: </span>
                                 <span style={{ fontWeight: font.weight.semibold, color: color.textDark }}>{question}</span>
                                 <span style={{ color: color.textMuted }}> · {TOTAL} responses</span>
                             </p>

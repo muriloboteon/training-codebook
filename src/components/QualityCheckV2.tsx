@@ -429,7 +429,7 @@ function QualityCheckV2({
                         {/* Cancel fecha o QC e volta ao codebook, sem mudanças. */}
                         <ModalButton variant="tertiary" onClick={onCancel}>Cancel</ModalButton>
                         <ModalButton variant="primary" onClick={handlePrimary}>
-                            {allAI ? 'Keep rules and continue' : 'Update rules'}
+                            {allAI ? 'Keep rules and continue' : 'Update code rules'}
                         </ModalButton>
                     </div>
                 </div>

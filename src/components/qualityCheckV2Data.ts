@@ -8,10 +8,17 @@
 // manualmente e compara, resposta a resposta, os codes manuais vs. os da AI —
 // comparação determinística 1:1, sem LLM-as-judge.
 //
+// Codes: os labels abaixo são IDÊNTICOS aos do CODEBOOK_ROWS do
+// AccountCodebookRulesModal (codebook de compras/delivery). É o match por label
+// que aplica a tag "Refined" nos codes do codebook após "Update code rules" —
+// ao editar, mantenha os nomes em sincronia com aquele arquivo.
+//
 // Amostra: 100 respostas, 20 com diferença (match rate de 80%). As 20 são, na
-// maioria, respostas longas e informais, com 2–4 codes de diferença cada,
-// misturando "AI missed", "AI added" e os dois. Também cobrem os casos de
-// estresse do layout: uma resposta com 10+ codes, nomes de code longos, uma
+// maioria, respostas longas e informais, com 1–4 codes de diferença cada,
+// misturando "AI missed", "AI added" e os dois, com erros típicos de AI
+// (Amazon vs. Amazon Fresh/Prime, Uber vs. Uber Eats, typos de marca, menções
+// negativas/passadas codificadas, sentimento). Também cobrem os casos de
+// estresse do layout: uma resposta com 10 codes, nomes de code longos, uma
 // resposta em que a AI não aplicou nenhum code e duas curtas. As outras 80 são
 // geradas de forma determinística (manual = AI) só para alimentar as contagens
 // (ex.: coluna "Manual coding (sample)" da visão By code).
@@ -33,150 +40,171 @@ export interface QcDerivedResponse extends QcResponse {
 
 /** Pergunta exibida quando o fluxo não traz uma pergunta de amostra. */
 export const FALLBACK_SAMPLE = {
-    text: 'Q4. What do you like most about your streaming service?',
+    text: 'Q4. Where do you usually shop for groceries, and why?',
 };
 
-// Codes do codebook (mock) -----------------------------------------------------
+// Codes do codebook (mesmos labels do AccountCodebookRulesModal) --------------
 
 const C = {
-    library: 'Content library & variety',
-    originals: 'Original series',
-    price: 'Price / value for money',
-    adFree: 'Ad-free experience',
-    ease: 'Ease of use / interface',
-    recs: 'Recommendations & personalization',
-    offline: 'Offline downloads',
-    quality: 'Streaming quality (4K, HDR)',
-    devices: 'Device compatibility (smart TV, console)',
-    profiles: 'Multiple profiles & family sharing',
-    continueWatching: 'Picks up where I left off across devices (continue watching)',
-    sports: 'Live sports',
-    kids: 'Kids & family content',
-    movies: 'Movies',
-    docs: 'Documentaries',
-    cancel: 'No contract / cancel anytime',
-    cable: 'Replacement for cable TV',
-    bundle: 'Bundled with other subscriptions',
-    international: 'International & foreign-language titles',
-    releases: 'New releases available quickly',
-    satisfied: 'General satisfaction',
-    dontKnow: "Nothing specific / don't know",
+    amazon: 'Amazon',
+    amazonFresh: 'Amazon Fresh',
+    prime: 'Amazon Prime',
+    walmartPlus: 'Walmart+',
+    walmart: 'Walmart',
+    target: 'Target',
+    kroger: 'Kroger',
+    aldi: 'Aldi',
+    publix: 'Publix',
+    wegmans: 'Wegmans',
+    safeway: 'Safeway',
+    costco: 'Costco',
+    sams: "Sam's Club",
+    bjs: "BJ's",
+    wholeFoods: 'Whole Foods',
+    traderJoes: "Trader Joe's",
+    sprouts: 'Sprouts',
+    hmart: 'H-Mart',
+    instacart: 'Instacart',
+    peapod: 'Peapod',
+    freshDirect: 'FreshDirect',
+    shipt: 'Shipt',
+    uberEats: 'Uber Eats',
+    doordash: 'DoorDash',
+    grubhub: 'GrubHub',
+    uber: 'Uber',
+    gopuff: 'GoPuff',
+    shoprite: 'Shoprite',
+    stopShop: 'Stop & Shop',
+    giant: 'Giant',
+    gristedes: 'Gristedes',
+    dollarTree: 'Dollar Tree',
+    dollarGeneral: 'Dollar General',
+    riteAid: 'Rite Aid',
+    lidl: 'Lidl',
+    positiveExcellent: 'Positive sentiment - excellent or very good',
+    positiveGood: 'Positive sentiment - good or like',
+    okay: 'Okay or acceptable',
+    noPref: 'No preference',
+    cantRecall: 'Cannot recall or specify',
+    nonResponse: 'Non-response or unclear',
 } as const;
 
 // Respostas com diferença (casos de estresse) ----------------------------------
 
 const DIFF_RESPONSES: Record<number, Omit<QcResponse, 'id'>> = {
+    // Menção passada/negativa (Stop & Shop) codificada pela AI.
     3: {
-        text: 'Mostly the documentaries and the international stuff. I got really into Korean dramas during lockdown and this is the only service with a decent selection and good subtitles. My husband watches the nature docs with the kids on weekends. The app itself is kind of clunky though, search never finds what I type on the first try.',
-        manualCodes: [C.docs, C.international, C.kids],
-        aiCodes: [C.docs, C.ease, C.movies],
+        text: 'Mostly Aldi and Lidl, they’re both like ten minutes from my house and way cheaper than the big chains. I used to go to Stop & Shop every week but the prices got ridiculous. Every couple of months I’ll do a Costco run with my sister because she has the membership.',
+        manualCodes: [C.aldi, C.lidl, C.costco],
+        aiCodes: [C.aldi, C.stopShop, C.costco, C.positiveGood],
     },
     7: {
-        text: 'The originals, hands down. I started for one show everybody was talking about and stayed for like five others. And there are no ads, which after years of cable feels like a luxury. I’d pay a bit more just to keep it that way.',
-        manualCodes: [C.originals, C.adFree, C.cable],
-        aiCodes: [C.library, C.adFree, C.price],
+        text: 'Amazon Fresh for the heavy stuff like water and cat litter, it gets delivered same day with my Prime membership. For everything else I just walk to Trader Joe’s.',
+        manualCodes: [C.amazonFresh, C.prime, C.traderJoes],
+        aiCodes: [C.amazon, C.prime, C.traderJoes],
     },
     11: {
-        text: 'I like that I can put something on for the kids while I cook and not worry about what comes on next. The kids profile locks everything else out. Other than that I don’t use it much myself, maybe a movie on Friday night.',
-        manualCodes: [C.kids, C.profiles],
-        aiCodes: [C.kids, C.profiles, C.movies, C.satisfied, C.library],
+        text: 'Walmart. It’s close, it’s cheap and it has everything in one place so I don’t have to make three stops with two kids in the car.',
+        manualCodes: [C.walmart],
+        aiCodes: [C.walmart, C.walmartPlus, C.positiveGood],
     },
-    // A AI não aplicou nenhum code.
+    // A AI não aplicou nenhum code (typos de marca).
     14: {
-        text: 'that I can watch on the subway with no signal lol',
-        manualCodes: [C.offline],
+        text: 'wallmart and aldis mostly lol',
+        manualCodes: [C.walmart, C.aldi],
         aiCodes: [],
     },
     19: {
-        text: 'Honestly it’s the only reason I canceled cable. Between this and the free news apps I don’t miss anything. Plus I can quit any month if the price goes up again, which it probably will lol.',
-        manualCodes: [C.cable, C.cancel, C.price],
-        aiCodes: [C.cable],
+        text: 'Honestly I barely go inside a store anymore. Instacard does most of my weekly order from Wegmans, and if I forget something I’ll get it through GoPuff at like 11pm. Doordash for dinner when I’m too tired to cook.',
+        manualCodes: [C.instacart, C.wegmans, C.gopuff, C.doordash],
+        aiCodes: [C.wegmans],
     },
-    // Texto longo + 10+ codes.
+    // Texto longo + 10 codes.
     23: {
         text:
-            'Where do I even start. The library is huge and there is always something new, from the big originals everyone talks about at work to random older movies I forgot existed. For the price it is honestly hard to beat, especially since we went with the plan with no ads, which makes a huge difference when you are binge watching. The recommendations are scary accurate, it figured out I love true crime documentaries within a week. It works on basically every device in the house: the smart TV in the living room, my son’s Xbox, my phone and the old iPad. Everyone has their own profile so the cartoons don’t mess up my suggestions, and there is a kids section that I actually trust. I also love that it picks up exactly where I left off when I switch from the TV to my phone on the way to work.',
+            'Where do I even start. Weekly groceries are split between Kroger and Aldi depending on what’s on sale, and I go to Whole Foods for meat and fish because the quality is just better. Trader Joe’s for snacks and frozen stuff, obviously. Once a month we do a big bulk run at Costco, and my husband insists on Sam’s Club for his protein bars even though I keep telling him it’s the same thing. When nobody has time to go out I order from Instacart, and Amazon Fresh has been a lifesaver for the heavy stuff like water and paper towels. For last-minute things there’s a Dollar General right by my kid’s school. Overall I’m really happy with the options we have around here, it’s honestly great.',
         manualCodes: [
-            C.library, C.originals, C.movies, C.price, C.adFree, C.recs,
-            C.docs, C.devices, C.profiles, C.kids, C.continueWatching,
+            C.kroger, C.aldi, C.wholeFoods, C.traderJoes, C.costco,
+            C.sams, C.instacart, C.amazonFresh, C.dollarGeneral, C.positiveExcellent,
         ],
         aiCodes: [
-            C.library, C.originals, C.movies, C.price, C.adFree, C.recs,
-            C.devices, C.profiles, C.kids, C.continueWatching, C.ease,
+            C.kroger, C.aldi, C.wholeFoods, C.traderJoes, C.costco,
+            C.sams, C.amazonFresh, C.dollarGeneral, C.amazon, C.positiveGood,
         ],
     },
+    // Serviço que o respondente cancelou, codificado pela AI.
     27: {
-        text: 'Downloads!! I travel for work almost every week and being able to download a whole season before a flight is a lifesaver. Quality is still good offline too. Wish more movies were downloadable, a lot of the newer ones aren’t.',
-        manualCodes: [C.offline, C.quality],
-        aiCodes: [C.offline, C.movies, C.releases],
+        text: 'Target for household stuff and whatever groceries I remember while I’m there. I tried Shipt for a while but the substitutions drove me crazy so I canceled it.',
+        manualCodes: [C.target],
+        aiCodes: [C.target, C.shipt],
     },
     // Nomes de code longos.
     31: {
-        text: 'Works on my PS5 and the TV in the bedroom, and my daughter has her own profile with just her shows so she stops messing with my continue watching row. Setting it up on the console took like two minutes.',
-        manualCodes: [C.devices, C.profiles, C.kids, C.continueWatching, C.ease],
-        aiCodes: [C.devices, C.profiles],
+        text: 'I don’t really remember, whatever is closest when I need something. It’s fine I guess, nothing special about any of them.',
+        manualCodes: [C.cantRecall, C.noPref, C.okay],
+        aiCodes: [C.nonResponse, C.okay],
     },
     36: {
-        text: 'The recommendations. It’s weird how well it knows me. I finished a show last night and the next thing it suggested was exactly what I was in the mood for.',
-        manualCodes: [C.recs],
-        aiCodes: [C.recs, C.library, C.satisfied],
+        text: 'Publix. The subs are the best and the staff are always super nice, I wouldn’t shop anywhere else.',
+        manualCodes: [C.publix, C.positiveExcellent],
+        aiCodes: [C.publix, C.positiveExcellent, C.positiveGood],
     },
     40: {
-        text: 'tbh the price used to be the main thing but its gone up twice this year so now its more that everyone in the family uses it, we have 4 profiles going. my mom watches her spanish novelas, my kids watch cartoons and i watch whatever new thing drops on friday. hard to replace that with one other app',
-        manualCodes: [C.profiles, C.international, C.kids, C.releases],
-        aiCodes: [C.profiles, C.price, C.kids, C.bundle],
+        text: 'mostly shoprite bc its the closest, sometimes stop n shop if theres a sale. my mom still orders from peapod every week which i think is funny. we used to get uber eats a lot but its way too expensive now',
+        manualCodes: [C.shoprite, C.stopShop, C.peapod],
+        aiCodes: [C.shoprite, C.peapod, C.uberEats, C.uber],
     },
     46: {
-        text: 'Price. Way cheaper than cable was and I can cancel whenever I want without calling anyone. It also came free for 6 months with my phone plan so I got hooked before I ever paid for it.',
-        manualCodes: [C.price, C.cancel, C.cable, C.bundle],
-        aiCodes: [C.price, C.cancel, C.bundle, C.satisfied],
+        text: 'We have a Giant right down the street and I use their Giant peapod delivery when the weather is bad. Sometimes Safeway if I’m near my office.',
+        manualCodes: [C.giant, C.peapod, C.safeway],
+        aiCodes: [C.giant, C.safeway],
     },
     // Texto longo.
     52: {
         text:
-            'Honestly the picture quality is what sold me. We upgraded to a 4K TV last year and most of the other apps still looked blurry, but here everything is sharp and the HDR on the nature documentaries is unbelievable. The recommendations also got a lot better over time — it now mostly suggests documentaries and a few thrillers, which is exactly what I watch. The only thing I would change is that new movies take a while to show up compared to renting them, but I have made peace with that.',
-        manualCodes: [C.quality, C.docs, C.recs],
-        aiCodes: [C.quality, C.docs, C.recs, C.releases, C.movies],
+            'I’m very particular about organic produce so it’s mostly Sprouts and Whole Foods for me. The prices at Whole Foods got a bit better after the Amazon thing, and I get free delivery through my Prime account, which is great when I’m busy with work. I’d say the quality at both is excellent, and the staff at Sprouts know me by name at this point.',
+        manualCodes: [C.sprouts, C.wholeFoods, C.prime, C.positiveExcellent],
+        aiCodes: [C.sprouts, C.wholeFoods, C.prime, C.positiveExcellent, C.amazon, C.amazonFresh],
     },
     57: {
-        text: 'Picture and sound quality are top notch, it’s the only app where Dolby Atmos actually works on my soundbar. I also like that I can start a movie on the TV and finish it on the tablet in bed. Live sports would make it perfect but I get that that’s expensive.',
-        manualCodes: [C.quality, C.continueWatching, C.devices, C.movies],
-        aiCodes: [C.quality],
+        text: 'H-Mart for all the Korean groceries I can’t find anywhere else, and Cosco for rice and meat in bulk. My parents still go to a small store in Flushing but I don’t know the name. BJ’s sometimes because it’s closer, but the selection is worse.',
+        manualCodes: [C.hmart, C.costco, C.bjs, C.cantRecall],
+        aiCodes: [C.hmart],
     },
     61: {
-        text: 'Nothing really stands out, it’s just the one we’ve had the longest. The kids like it and I don’t want to deal with switching all the logins on the TVs.',
-        manualCodes: [C.satisfied, C.kids, C.devices],
-        aiCodes: [C.dontKnow, C.kids],
+        text: 'Dollar Tree and Dollar General for most things, and Walmart+ delivery when I need bigger stuff. Money is tight so I go wherever is cheapest.',
+        manualCodes: [C.dollarTree, C.dollarGeneral, C.walmartPlus],
+        aiCodes: [C.dollarTree, C.dollarGeneral, C.walmart, C.noPref],
     },
     68: {
-        text: 'Sunday football without paying for a cable package. That’s it, that’s the whole reason. During the offseason I pause the subscription and come back in September.',
-        manualCodes: [C.sports, C.cable, C.cancel],
-        aiCodes: [C.sports],
+        text: 'FreshDirect! I live in a fourth floor walk-up in Manhattan, there is no way I’m carrying groceries up those stairs. Gristedes on the corner for emergencies.',
+        manualCodes: [C.freshDirect, C.gristedes],
+        aiCodes: [C.freshDirect],
     },
     73: {
-        text: 'I mostly watch old movies and classic TV shows, the kind of stuff you can’t find anywhere else anymore. The catalog of older films is really deep. New releases I don’t care about.',
-        manualCodes: [C.movies, C.library],
-        aiCodes: [C.movies, C.library, C.releases, C.originals],
+        text: 'Costco. Everything else is too expensive for a family of six.',
+        manualCodes: [C.costco],
+        aiCodes: [C.costco, C.bjs],
     },
     79: {
-        text: 'The interface is clean and fast compared to the others I’ve tried, no weird autoplay trailers screaming at you when you open it. Search actually works. Also love the skip intro button, small thing but I use it constantly.',
-        manualCodes: [C.ease],
-        aiCodes: [C.ease, C.adFree, C.recs],
+        text: 'I order almost everything on Amazon now, even groceries. It’s just easier than going out with a newborn.',
+        manualCodes: [C.amazon],
+        aiCodes: [C.amazon, C.amazonFresh, C.prime],
     },
     85: {
-        text: 'idk, it’s fine I guess',
-        manualCodes: [C.dontKnow],
-        aiCodes: [C.satisfied],
+        text: 'idk',
+        manualCodes: [C.nonResponse],
+        aiCodes: [C.cantRecall],
     },
     90: {
-        text: 'We use it on the long car trips, the kids each have a tablet with downloaded episodes and there are zero fights about what to watch. It’s worth it for that alone.',
-        manualCodes: [C.offline, C.kids, C.profiles, C.price],
-        aiCodes: [C.kids],
+        text: 'We split it: Kroger for the weekly stuff, Target for household items, and Rite Aid for prescriptions and snacks since it’s on the way home. Every now and then GrubHub when nobody wants to cook.',
+        manualCodes: [C.kroger, C.target, C.riteAid, C.grubhub],
+        aiCodes: [C.kroger, C.target],
     },
     96: {
-        text: 'I like that they drop the whole season at once so I can binge on the weekend, and the originals are usually better than what’s on regular TV. The foreign shows with dubbing are a nice bonus. Only complaint is that the app crashes on my old Roku.',
-        manualCodes: [C.releases, C.originals, C.international],
-        aiCodes: [C.originals, C.international, C.devices, C.library],
+        text: 'Lidl opened near us last year and it’s honestly great, I switched from Safeway almost completely. I still take an Uber to get there since I don’t drive, and sometimes I’ll just order Uber Eats from the deli next door.',
+        manualCodes: [C.lidl, C.positiveExcellent, C.uberEats],
+        aiCodes: [C.lidl, C.positiveGood, C.safeway, C.uber, C.uberEats],
     },
 };
 
@@ -184,26 +212,24 @@ const DIFF_RESPONSES: Record<number, Omit<QcResponse, 'id'>> = {
 
 // Pool e frases usadas para montar as respostas concordantes.
 const MATCHED_POOL: { code: string; phrase: string }[] = [
-    { code: C.library, phrase: 'there is always something to watch' },
-    { code: C.originals, phrase: 'their original shows' },
-    { code: C.price, phrase: 'good value for the price' },
-    { code: C.adFree, phrase: 'no commercials' },
-    { code: C.ease, phrase: 'the app is easy to use' },
-    { code: C.recs, phrase: 'the suggestions are spot on' },
-    { code: C.offline, phrase: 'I can download episodes for flights' },
-    { code: C.quality, phrase: 'the picture is really sharp' },
-    { code: C.devices, phrase: 'it works on my TV and my phone' },
-    { code: C.profiles, phrase: 'we share one account as a family' },
-    { code: C.sports, phrase: 'live games' },
-    { code: C.kids, phrase: 'lots of shows for the kids' },
-    { code: C.movies, phrase: 'good movie selection' },
-    { code: C.docs, phrase: 'great documentaries' },
-    { code: C.cancel, phrase: 'I can cancel anytime' },
-    { code: C.cable, phrase: 'I could finally drop cable' },
-    { code: C.bundle, phrase: 'it came bundled with my phone plan' },
-    { code: C.international, phrase: 'shows from other countries' },
-    { code: C.releases, phrase: 'new stuff comes out fast' },
-    { code: C.satisfied, phrase: 'I just like it overall' },
+    { code: C.walmart, phrase: 'Walmart because it is close' },
+    { code: C.target, phrase: 'Target for household stuff' },
+    { code: C.kroger, phrase: 'Kroger for the weekly groceries' },
+    { code: C.aldi, phrase: 'Aldi because it is cheap' },
+    { code: C.publix, phrase: 'Publix' },
+    { code: C.wegmans, phrase: 'Wegmans' },
+    { code: C.safeway, phrase: 'Safeway near my office' },
+    { code: C.costco, phrase: 'Costco for bulk' },
+    { code: C.sams, phrase: 'Sam’s Club once a month' },
+    { code: C.wholeFoods, phrase: 'Whole Foods for produce' },
+    { code: C.traderJoes, phrase: 'Trader Joe’s for snacks' },
+    { code: C.instacart, phrase: 'Instacart when I am busy' },
+    { code: C.amazonFresh, phrase: 'Amazon Fresh deliveries' },
+    { code: C.shoprite, phrase: 'ShopRite' },
+    { code: C.dollarGeneral, phrase: 'Dollar General for quick stuff' },
+    { code: C.doordash, phrase: 'DoorDash for takeout' },
+    { code: C.lidl, phrase: 'Lidl' },
+    { code: C.sprouts, phrase: 'Sprouts for organic stuff' },
 ];
 
 // PRNG determinístico (Park–Miller) para a amostra ser sempre a mesma.
@@ -226,7 +252,7 @@ function buildSample(): QcResponse[] {
             continue;
         }
         if (n % 23 === 0) {
-            out.push({ id, text: 'Not sure, nothing in particular.', manualCodes: [C.dontKnow], aiCodes: [C.dontKnow] });
+            out.push({ id, text: 'Not sure, nothing in particular.', manualCodes: [C.cantRecall], aiCodes: [C.cantRecall] });
             continue;
         }
         const count = 1 + Math.floor(random() * 3);

@@ -547,10 +547,13 @@ function SegmentedBar({ total, segments }: { total: number; segments: { label: s
 // Tag de status do RecreateCodebookModal (borda e dot na cor da série, fundo
 // em tom claro, raio de 8px, 24px de altura), com tipografia mais leve: 12px
 // medium em vez de 14px semibold.
-function DiffBadge({ fill, tint, children }: { fill: string; tint: string; children: ReactNode }) {
+// `tooltip` usa o title nativo (mesmo padrão dos tooltips do protótipo).
+function DiffBadge({ fill, tint, tooltip, children }: { fill: string; tint: string; tooltip?: string; children: ReactNode }) {
     return (
         <span
+            title={tooltip}
             style={{
+                cursor: tooltip ? 'help' : undefined,
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: space.sm,
@@ -727,12 +730,12 @@ function ResponseRow({
                     card "Responses with differences". */}
                 <span style={{ display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap', gap: space.xs }}>
                     {item.onlyManual.length > 0 && (
-                        <DiffBadge fill={SERIES.onlyManual} tint={color.amberSoft}>
+                        <DiffBadge fill={SERIES.onlyManual} tint={color.amberSoft} tooltip="Codes applied in the manual coding that the AI didn't apply.">
                             AI missed {plural(item.onlyManual.length, 'code', 'codes')}
                         </DiffBadge>
                     )}
                     {item.onlyAI.length > 0 && (
-                        <DiffBadge fill={SERIES.onlyAI} tint={color.infoSoft}>
+                        <DiffBadge fill={SERIES.onlyAI} tint={color.infoSoft} tooltip="Codes the AI applied that aren't in the manual coding.">
                             AI added {plural(item.onlyAI.length, 'code', 'codes')}
                         </DiffBadge>
                     )}

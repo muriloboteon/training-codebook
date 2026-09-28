@@ -238,7 +238,9 @@ export function SortHeader({
                 minWidth: 0,
                 padding: '8px 12px',
                 border: 'none',
-                borderRight: borderRight ? `1px solid ${color.border}` : undefined,
+                // 'none' explícito (e não undefined): ao alternar a divisória, o
+                // React limparia border-right e o botão voltaria à borda nativa.
+                borderRight: borderRight ? `1px solid ${color.border}` : 'none',
                 background: 'none',
                 cursor: 'pointer',
                 fontFamily: font.family,

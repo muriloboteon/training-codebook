@@ -2,25 +2,37 @@ import { useState } from 'react';
 import { color, font, radius } from '../tokens';
 import type { TrainingQuestion } from './RecreateCodebookModal';
 import QualityCheckV2 from './QualityCheckV2';
-import QualityCheckV3 from './QualityCheckV3';
+import QualityCheckV3, { type CodeColumns } from './QualityCheckV3';
 import type { QcDecision } from './qualityCheckV2Data';
 
 // -----------------------------------------------------------------------------
-// QualityCheckPrototype — TEMPORÁRIO: alterna entre o layout atual do Quality
-// Check (QualityCheckV2) e o layout proposto (QualityCheckV3, lista densa
-// voltada para escaneabilidade) por um switch no header, para comparar as duas
+// QualityCheckPrototype — TEMPORÁRIO: alterna entre layouts do Quality Check
+// por um switch no header ("Prototype layout: V1 … V4"), para comparar
 // com a PM. O switch é só do protótipo (amarelo, como o PrototypeNav).
 //
-// As decisões por resposta ficam aqui, então sobrevivem à troca de layout. A
-// semântica de "ausente" difere: na V2 ausente = Manual (default); na V3
-// ausente = ainda não revisada.
+//   V1 → QualityCheckV2 (layout atual, cards por resposta).
+//   V2 → QualityCheckV3 codeColumns="diff"  (lista densa, coluna Differences).
+//   V3 → QualityCheckV3 codeColumns="split" (lista densa, colunas Matched in
+//        both · Only in manual coding · Only in AI coding).
+//   V4 → QualityCheckV3 codeColumns="stacked" (os mesmos três grupos, abaixo
+//        do texto de cada resposta).
 //
-// Para remover a V3: renderizar QualityCheckV2 direto no
+// As decisões por resposta ficam aqui, então sobrevivem à troca de layout. Em
+// todas as versões, ausente = Manual (default, feedback da PM).
+//
+// Para remover as propostas: renderizar QualityCheckV2 direto no
 // AccountCodebookRulesModal (com o estado de decisões) e apagar este arquivo e
 // o QualityCheckV3.
 // -----------------------------------------------------------------------------
 
-type Layout = 'current' | 'proposed';
+type Layout = 'v1' | 'v2' | 'v3' | 'v4';
+
+// Layout → modo de colunas do QualityCheckV3 (V2 em diante).
+const CODE_COLUMNS: Record<Exclude<Layout, 'v1'>, CodeColumns> = {
+    v2: 'diff',
+    v3: 'split',
+    v4: 'stacked',
+};
 
 interface QualityCheckPrototypeProps {
     isOpen: boolean;
@@ -31,22 +43,30 @@ interface QualityCheckPrototypeProps {
 }
 
 function QualityCheckPrototype(props: QualityCheckPrototypeProps) {
-    const [layout, setLayout] = useState<Layout>('current');
+    const [layout, setLayout] = useState<Layout>('v1');
     const [decisions, setDecisions] = useState<Record<string, QcDecision>>({});
 
     const layoutSwitch = <LayoutSwitch value={layout} onChange={setLayout} />;
 
-    return layout === 'current' ? (
+    return layout === 'v1' ? (
         <QualityCheckV2 {...props} decisions={decisions} onDecisionsChange={setDecisions} headerExtra={layoutSwitch} />
     ) : (
-        <QualityCheckV3 {...props} decisions={decisions} onDecisionsChange={setDecisions} headerExtra={layoutSwitch} />
+        <QualityCheckV3
+            {...props}
+            decisions={decisions}
+            onDecisionsChange={setDecisions}
+            headerExtra={layoutSwitch}
+            codeColumns={CODE_COLUMNS[layout]}
+        />
     );
 }
 
 function LayoutSwitch({ value, onChange }: { value: Layout; onChange: (v: Layout) => void }) {
     const options: { value: Layout; label: string }[] = [
-        { value: 'current', label: 'V1' },
-        { value: 'proposed', label: 'V2' },
+        { value: 'v1', label: 'V1' },
+        { value: 'v2', label: 'V2' },
+        { value: 'v3', label: 'V3' },
+        { value: 'v4', label: 'V4' },
     ];
     return (
         <div role="group" aria-label="Prototype layout" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>

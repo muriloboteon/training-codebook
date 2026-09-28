@@ -179,7 +179,6 @@ function QualityCheckV2({
 }: QualityCheckV2Props) {
     const [view, setView] = useState<View>('response');
     const [codeFilter, setCodeFilter] = useState<string>('');
-    const resultsRef = useRef<HTMLDivElement>(null);
 
     // Fecha com ESC.
     useEffect(() => {
@@ -210,13 +209,6 @@ function QualityCheckV2({
         }
         const codes = new Set(manualRows.flatMap((r) => [...r.onlyManual, ...r.onlyAI]));
         onUpdateRules(Array.from(codes));
-    };
-
-    // By code → By response filtrado pelo code.
-    const viewResponsesFor = (code: string) => {
-        setView('response');
-        setCodeFilter(code);
-        resultsRef.current?.scrollIntoView({ block: 'start' });
     };
 
     const question = sampleQuestion?.text ?? FALLBACK_SAMPLE.text;
@@ -356,7 +348,7 @@ function QualityCheckV2({
 
                         {/* 4. Resultados: toolbar + lista de cards (sem moldura
                             própria — cada resposta é um card, como no QC V1). */}
-                        <div ref={resultsRef} style={{ scrollMarginTop: 0, marginTop: space.sm }}>
+                        <div style={{ marginTop: space.sm }}>
                             {/* Título da seção de revisão: separa "o que aconteceu"
                                 (resumo) de "o que fazer" (lista). Mesmo texto nas duas
                                 visões (By response / By code). */}
@@ -426,7 +418,7 @@ function QualityCheckV2({
                                 )
                             ) : (
                                 <div style={{ marginTop: space.md, border: `1px solid ${color.border}`, borderRadius: radius.lg, overflow: 'hidden', backgroundColor: color.surface }}>
-                                    <CodeTable stats={CODE_STATS} onViewResponses={viewResponsesFor} />
+                                    <CodeTable stats={CODE_STATS} />
                                 </div>
                             )}
                         </div>
@@ -658,7 +650,8 @@ type ChipKind = 'onlyManual' | 'onlyAI' | 'both';
 // qualityCheckPanel.css), reproduzido aqui para não acoplar ao CSS da V1:
 // só o texto, fundo branco, borda cinza sem a lateral esquerda e uma barra
 // roxa de 3px à esquerda. Mesmo estilo nos três grupos — o bloco onde o chip
-// está já diz se é "only in manual", "only in AI" ou "in both".
+// está já diz se é "only in manual", "only in AI" ou "in both". O nome nunca é
+// cortado: sem espaço, o chip quebra em mais linhas.
 function Chip({ code }: { code: string }) {
     return (
         <span
@@ -666,8 +659,8 @@ function Chip({ code }: { code: string }) {
             style={{
                 position: 'relative',
                 display: 'inline-flex',
-                alignItems: 'center',
-                maxWidth: '260px',
+                alignItems: 'flex-start',
+                maxWidth: '100%',
                 padding: '4px 10px',
                 backgroundColor: color.surface,
                 border: `1px solid ${color.borderInput}`,
@@ -683,7 +676,7 @@ function Chip({ code }: { code: string }) {
                 aria-hidden="true"
                 style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: '3px', backgroundColor: color.codeChipAccent, borderRadius: `${radius.sm} 0 0 ${radius.sm}` }}
             />
-            <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{code}</span>
+            <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{code}</span>
         </span>
     );
 }
@@ -848,11 +841,7 @@ function ResponseText({ text }: { text: string }) {
 // horizontais, texto textDark. Sem as colunas de expander e checkbox.
 type CodeSortKey = 'code' | 'onlyManual' | 'onlyAI' | 'total';
 
-function CodeTable({ stats, onViewResponses }: { stats: CodeStat[]; onViewResponses: (code: string) => void }) {
-    // "View responses" só aparece no hover (ou foco por teclado) da linha — mesmo
-    // padrão da coluna de ações da tabela Coder. Fica com opacity 0 (e não
-    // visibility) para continuar alcançável via Tab.
-    const [activeCode, setActiveCode] = useState<string | null>(null);
+function CodeTable({ stats }: { stats: CodeStat[] }) {
     // Sem sort ativo, mantém a ordem padrão (total de diferenças desc). Clicar
     // alterna asc/desc — mesmo comportamento da tabela de estudos do Recreate.
     const [sort, setSort] = useState<{ key: CodeSortKey; dir: SortDir } | null>(null);
@@ -866,33 +855,19 @@ function CodeTable({ stats, onViewResponses }: { stats: CodeStat[]; onViewRespon
             return sign * diff || a.code.localeCompare(b.code);
         })
         : stats;
-    const header = (label: string, key: CodeSortKey, align: 'left' | 'right' = 'right') => (
+    const header = (label: string, key: CodeSortKey, align: 'left' | 'right' = 'right', last = false) => (
         <span role="columnheader" aria-sort={sort?.key === key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'} style={{ display: 'flex', minWidth: 0 }}>
-            <SortHeader label={label} align={align} borderRight active={sort?.key === key} dir={sort?.key === key ? sort.dir : 'asc'} onClick={() => toggleSort(key)} />
+            <SortHeader label={label} align={align} borderRight={!last} active={sort?.key === key} dir={sort?.key === key ? sort.dir : 'asc'} onClick={() => toggleSort(key)} />
         </span>
     );
 
     // Code limitado a 440px; o espaço restante vai para as colunas numéricas.
     // Mínimos das colunas numéricas = largura do título sem truncar.
-    const gridCols = 'minmax(0, 440px) minmax(135px, 1fr) minmax(220px, 1fr) minmax(190px, 1fr) 150px'; // Code · Differences · Only manual · Only AI · Actions
+    const gridCols = 'minmax(0, 440px) minmax(135px, 1fr) minmax(220px, 1fr) minmax(190px, 1fr)'; // Code · Differences · Only manual · Only AI
     const gridLine = `1px solid ${color.border}`;
     const rowMinHeight = '35px';
 
     const row: CSSProperties = { display: 'grid', gridTemplateColumns: gridCols, alignItems: 'stretch', minHeight: rowMinHeight };
-    const th = (align: 'left' | 'right', last = false): CSSProperties => ({
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: align === 'right' ? 'flex-end' : 'flex-start',
-        minWidth: 0,
-        padding: '8px 12px',
-        borderRight: last ? undefined : gridLine,
-        fontSize: font.size.sm,
-        fontWeight: font.weight.semibold,
-        letterSpacing: '0.05em',
-        textTransform: 'uppercase',
-        color: color.textDark,
-        whiteSpace: 'nowrap',
-    });
     const td = (align: 'left' | 'right', last = false): CSSProperties => ({
         display: 'flex',
         alignItems: 'center',
@@ -912,34 +887,18 @@ function CodeTable({ stats, onViewResponses }: { stats: CodeStat[]; onViewRespon
                 {header('Code', 'code', 'left')}
                 {header('Differences', 'total')}
                 {header('Only in manual coding', 'onlyManual')}
-                {header('Only in AI coding', 'onlyAI')}
-                <span role="columnheader" style={th('left', true)}>
-                    <span style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>Actions</span>
-                </span>
+                {header('Only in AI coding', 'onlyAI', 'right', true)}
             </div>
             {sortedStats.map((s, i) => (
                 <div
                     key={s.code}
                     role="row"
                     style={{ ...row, backgroundColor: color.surface, borderBottom: i === sortedStats.length - 1 ? undefined : gridLine }}
-                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = color.surfaceHover; setActiveCode(s.code); }}
-                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = color.surface; setActiveCode((c) => (c === s.code ? null : c)); }}
-                    onFocus={() => setActiveCode(s.code)}
-                    onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setActiveCode((c) => (c === s.code ? null : c)); }}
                 >
                     <span role="cell" style={td('left')}><span title={s.code} style={ellipsis}>{s.code}</span></span>
                     <span role="cell" style={td('right')}>{s.total}</span>
                     <span role="cell" style={td('right')}>{s.onlyManual}</span>
-                    <span role="cell" style={td('right')}>{s.onlyAI}</span>
-                    <span role="cell" style={{ ...td('right', true), padding: `${space.xs} ${space.md}` }}>
-                        <ModalButton
-                            variant="tertiary"
-                            onClick={() => onViewResponses(s.code)}
-                            style={{ height: '28px', padding: `0 ${space.md}`, fontSize: font.size.smd, opacity: activeCode === s.code ? 1 : 0 }}
-                        >
-                            View responses
-                        </ModalButton>
-                    </span>
+                    <span role="cell" style={td('right', true)}>{s.onlyAI}</span>
                 </div>
             ))}
         </div>

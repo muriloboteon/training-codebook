@@ -1,7 +1,7 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type Dispatch, type ReactNode, type SetStateAction } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import { Minus, Plus, X } from '@phosphor-icons/react';
 import { color, font, radius, space, shadow } from '../tokens';
-import type { TrainingQuestion } from './RecreateCodebookModal';
+import { SortHeader, type SortDir, type TrainingQuestion } from './RecreateCodebookModal';
 import ModalButton from './ModalButton';
 import SelectField from './SelectField';
 import { FALLBACK_SAMPLE, SAMPLE_RESPONSES, type QcDecision, type QcDerivedResponse } from './qualityCheckV2Data';
@@ -19,15 +19,27 @@ import { FALLBACK_SAMPLE, SAMPLE_RESPONSES, type QcDecision, type QcDerivedRespo
 //   - Diferenças no mesmo chip de code da V2, só com a barra lateral na cor
 //     da série e um sinal (− missed / + added).
 //   - Termos únicos: "Missed by AI" / "Added by AI".
-//   - Linhas começam NÃO revisadas: progresso, filtro To review / Reviewed e
-//     "Accept remaining as Manual". O botão principal só habilita com tudo
-//     revisado.
-//   - Toolbar + cabeçalho das colunas fixos (sticky) ao rolar.
+//   - Manual vem selecionado por padrão em todas as respostas (feedback da
+//     PM): o usuário só troca para AI nas exceções. Sem estado "não revisada".
+//   - Mesma toolbar da V1: visões By response / By code (tabela por code,
+//     copiada da V1) e filtro Code (só em By response).
+//   - Uma rolagem só (a do modal): ao rolar, o título da revisão, a toolbar
+//     e o cabeçalho da tabela ficam fixos (sticky) no topo.
+//
+// `codeColumns` escolhe como os codes aparecem na lista (switch do protótipo):
+//   - 'diff'  (layout "V2"): uma coluna Differences com as tags −/+.
+//   - 'split' (layout "V3"): três colunas — Matched in both · Only in manual
+//     coding · Only in AI coding — com todos os codes da resposta, sem sinal
+//     (a coluna já diz o tipo); a barra do chip segue roxa / âmbar / azul.
+//   - 'stacked' (layout "V4"): os mesmos três grupos do split, mas abaixo do
+//     texto da resposta, empilhados (rótulo à esquerda, chips ao lado). A
+//     tabela fica só com Response · Correct coding.
 //
 // Protótipo puramente visual: nada é persistido.
 // -----------------------------------------------------------------------------
 
-type StatusFilter = 'all' | 'todo' | 'done';
+export type CodeColumns = 'diff' | 'split' | 'stacked';
+type View = 'response' | 'code';
 
 // Números da amostra (todos derivados dos dados) ------------------------------
 
@@ -37,8 +49,27 @@ const MATCHED = TOTAL - DIFFS.length;
 const MISSED_CODES = DIFFS.reduce((n, r) => n + r.onlyManual.length, 0);
 const ADDED_CODES = DIFFS.reduce((n, r) => n + r.onlyAI.length, 0);
 
-// Codes envolvidos em alguma diferença, em ordem alfabética (filtro Code).
-const DIFF_CODES_ALPHA = Array.from(new Set(DIFFS.flatMap((r) => [...r.onlyManual, ...r.onlyAI]))).sort((a, b) => a.localeCompare(b));
+interface CodeStat {
+    code: string;
+    onlyManual: number;
+    onlyAI: number;
+    total: number;
+}
+
+// Codes envolvidos em alguma diferença, por total de diferenças (desc) — visão
+// By code (mesmo cálculo da V1).
+const CODE_STATS: CodeStat[] = (() => {
+    const codes = Array.from(new Set(DIFFS.flatMap((r) => [...r.onlyManual, ...r.onlyAI])));
+    return codes
+        .map((code) => {
+            const onlyManual = DIFFS.filter((r) => r.onlyManual.includes(code)).length;
+            const onlyAI = DIFFS.filter((r) => r.onlyAI.includes(code)).length;
+            return { code, onlyManual, onlyAI, total: onlyManual + onlyAI };
+        })
+        .sort((a, b) => b.total - a.total || a.code.localeCompare(b.code));
+})();
+// Mesmos codes em ordem alfabética (filtro Code).
+const DIFF_CODES_ALPHA = CODE_STATS.map((s) => s.code).sort((a, b) => a.localeCompare(b));
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
@@ -49,6 +80,9 @@ const DIFF = {
         tint: color.amberSoft,
         Icon: Minus,
         label: 'Missed by AI',
+        // Termo da V4 (stacked) no summary e nas tooltips: "AI Coder" quando é
+        // quem age.
+        v4Label: 'Missed by AI Coder',
         sign: '−',
         explain: (code: string) => `Manual coding applied "${code}" to this response. AI Coder didn't.`,
     },
@@ -57,6 +91,7 @@ const DIFF = {
         tint: color.infoSoft,
         Icon: Plus,
         label: 'Added by AI',
+        v4Label: 'Added by AI Coder',
         sign: '+',
         explain: (code: string) => `AI Coder applied "${code}" to this response. Manual coding didn't.`,
     },
@@ -79,6 +114,10 @@ const columnHeader: CSSProperties = {
     whiteSpace: 'nowrap',
 };
 
+// Célula do cabeçalho da lista: texto centralizado na vertical (a célula
+// estica na altura toda para a divisória vertical ir de ponta a ponta).
+const headerCell: CSSProperties = { ...columnHeader, display: 'flex', alignItems: 'center', minWidth: 0 };
+
 const linkButton: CSSProperties = {
     padding: 0,
     border: 'none',
@@ -93,13 +132,31 @@ const linkButton: CSSProperties = {
 
 const visuallyHidden: CSSProperties = { position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' };
 
-// Colunas da lista: resposta · diferenças · decisão. Mesmas no cabeçalho e nas
-// linhas para tudo alinhar verticalmente.
-const LIST_COLUMNS: CSSProperties = {
-    display: 'grid',
-    gridTemplateColumns: 'minmax(0, 1fr) minmax(220px, 32%) 168px',
-    columnGap: space.xl,
+// Colunas da lista (mesmas no cabeçalho e nas linhas para tudo alinhar):
+//   diff  → resposta · diferenças · decisão
+//   split → resposta · matched · only manual · only AI · decisão
+//   stacked → resposta (com os grupos de codes abaixo) · decisão
+// diff/split têm linhas divisórias verticais (mesmo padrão da tabela de
+// estudos do RecreateCodebookModal): sem gap entre colunas; cada célula tem
+// padding 8px 12px e borda à direita (ver gridCell). Stacked segue com gap.
+const listColumns = (mode: CodeColumns): CSSProperties => {
+    if (mode === 'split') return { display: 'grid', gridTemplateColumns: 'minmax(220px, 1.4fr) repeat(3, minmax(0, 1fr)) 168px' };
+    if (mode === 'stacked') return { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 168px', columnGap: space.xl };
+    return { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(220px, 32%) 168px' };
 };
+
+const hasGridLines = (mode: CodeColumns) => mode !== 'stacked';
+
+// Célula com divisória (diff/split): padding da tabela de estudos + borda à
+// direita, exceto na última coluna. No stacked não aplica nada.
+const gridCell = (mode: CodeColumns, last = false): CSSProperties =>
+    hasGridLines(mode) ? { padding: '8px 12px', borderRight: last ? undefined : `1px solid ${color.border}` } : {};
+
+// Grupos de codes, na ordem de exibição de cada modo. No stacked as
+// diferenças vêm primeiro e "Matched in both" (contexto) fica por último.
+type CodeGroup = 'Matched in both' | 'Only in manual coding' | 'Only in AI coding';
+const CODE_GROUPS: CodeGroup[] = ['Matched in both', 'Only in manual coding', 'Only in AI coding'];
+const STACKED_GROUPS: CodeGroup[] = ['Only in manual coding', 'Only in AI coding', 'Matched in both'];
 
 // -----------------------------------------------------------------------------
 
@@ -112,11 +169,13 @@ interface QualityCheckV3Props {
     /** "Keep rules and continue": todas as respostas marcadas AI. */
     onKeepRules: () => void;
     onCancel: () => void;
-    /** Decisão por resposta (controlada pelo QualityCheckPrototype). Ausente = não revisada. */
+    /** Decisão por resposta (controlada pelo QualityCheckPrototype). Ausente = Manual (default). */
     decisions: Record<string, QcDecision>;
     onDecisionsChange: Dispatch<SetStateAction<Record<string, QcDecision>>>;
     /** Slot no header, à esquerda do X (switch de layout do protótipo). */
     headerExtra?: ReactNode;
+    /** Como os codes aparecem na lista (ver comentário do topo). Default 'diff'. */
+    codeColumns?: CodeColumns;
 }
 
 function QualityCheckV3({
@@ -128,9 +187,24 @@ function QualityCheckV3({
     decisions,
     onDecisionsChange: setDecisions,
     headerExtra,
+    codeColumns = 'diff',
 }: QualityCheckV3Props) {
-    const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+    const [view, setView] = useState<View>('response');
     const [codeFilter, setCodeFilter] = useState<string>('');
+    // Altura do bloco sticky (título + toolbar) = `top` do cabeçalho sticky da tabela.
+    const toolbarRef = useRef<HTMLDivElement>(null);
+    const [toolbarH, setToolbarH] = useState(0);
+
+    useLayoutEffect(() => {
+        if (!isOpen) return;
+        const el = toolbarRef.current;
+        if (!el) return;
+        const measure = () => setToolbarH(el.offsetHeight);
+        measure();
+        const ro = new ResizeObserver(measure);
+        ro.observe(el);
+        return () => ro.disconnect();
+    }, [isOpen]);
 
     // Fecha com ESC.
     useEffect(() => {
@@ -142,26 +216,18 @@ function QualityCheckV3({
 
     if (!isOpen) return null;
 
-    const reviewedCount = DIFFS.filter((r) => decisions[r.id]).length;
-    const remaining = DIFFS.length - reviewedCount;
-    const manualRows = DIFFS.filter((r) => decisions[r.id] === 'manual');
-    const aiCount = DIFFS.filter((r) => decisions[r.id] === 'ai').length;
-    const allAI = remaining === 0 && manualRows.length === 0;
+    const stacked = codeColumns === 'stacked';
+    const decisionOf = (id: string): QcDecision => decisions[id] ?? 'manual';
+    const manualRows = DIFFS.filter((r) => decisionOf(r.id) === 'manual');
+    const aiCount = DIFFS.length - manualRows.length;
+    const allAI = manualRows.length === 0;
 
-    const visibleRows = DIFFS.filter((r) => {
-        const reviewed = Boolean(decisions[r.id]);
-        if (statusFilter === 'todo' && reviewed) return false;
-        if (statusFilter === 'done' && !reviewed) return false;
-        return !codeFilter || r.onlyManual.includes(codeFilter) || r.onlyAI.includes(codeFilter);
-    });
+    const visibleRows = DIFFS.filter((r) => !codeFilter || r.onlyManual.includes(codeFilter) || r.onlyAI.includes(codeFilter));
 
-    const footerNote =
-        remaining > 0
-            ? `${plural(remaining, 'response', 'responses')} still to review`
-            : allAI
-              ? `All ${DIFFS.length} responses marked as AI correct. The rules stay as they are.`
-              : `${plural(manualRows.length, 'response', 'responses')} will be used to update the rules` +
-                (aiCount > 0 ? ` · ${aiCount} marked as AI correct` : '');
+    const footerNote = allAI
+        ? `All ${DIFFS.length} responses marked as AI correct. The rules stay as they are.`
+        : `${plural(manualRows.length, 'response', 'responses')} will be used to update the rules` +
+          (aiCount > 0 ? ` · ${aiCount} marked as AI correct` : '');
 
     const handlePrimary = () => {
         if (allAI) {
@@ -170,14 +236,6 @@ function QualityCheckV3({
         }
         const codes = new Set(manualRows.flatMap((r) => [...r.onlyManual, ...r.onlyAI]));
         onUpdateRules(Array.from(codes));
-    };
-
-    const acceptRemainingAsManual = () => {
-        setDecisions((prev) => {
-            const next = { ...prev };
-            DIFFS.forEach((r) => { if (!next[r.id]) next[r.id] = 'manual'; });
-            return next;
-        });
     };
 
     const question = sampleQuestion?.text ?? FALLBACK_SAMPLE.text;
@@ -237,13 +295,15 @@ function QualityCheckV3({
                     </div>
                 </div>
 
-                {/* Body — área de rolagem. Toolbar + cabeçalho da lista ficam sticky. */}
+                {/* Body — uma rolagem só (a do modal). Ao rolar, o título da
+                    revisão, a toolbar (tabs + filtro Code) e o cabeçalho da
+                    tabela ficam fixos no topo; só o resumo sai de cena. */}
                 <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
-                    <div style={{ padding: `${space.lg} ${space.xl} ${space.xl}`, display: 'flex', flexDirection: 'column', gap: space.lg }}>
+                    <div style={{ padding: `${space.lg} ${space.xl} 0` }}>
                         {/* Summary compacto: uma faixa, sem cards aninhados. */}
                         <section
                             aria-label="Comparison results"
-                            style={{ display: 'flex', flexDirection: 'column', gap: space.md, padding: `${space.md} ${space.lg}`, border: `1px solid ${color.border}`, borderRadius: radius.lg, backgroundColor: color.surfaceSubtle }}
+                            style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: space.md, padding: `${space.md} ${space.lg}`, border: `1px solid ${color.border}`, borderRadius: radius.lg, backgroundColor: color.surfaceSubtle }}
                         >
                             <p style={{ margin: 0, fontSize: font.size.md, lineHeight: '20px' }}>
                                 <span style={{ color: color.textMuted }}>Question: </span>
@@ -254,44 +314,56 @@ function QualityCheckV3({
                             <div style={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', columnGap: space.xl, rowGap: space.sm }}>
                                 <Stat value={`${Math.round((MATCHED / TOTAL) * 100)}%`} label="match rate" />
                                 <Stat value={DIFFS.length} label={`of ${TOTAL} responses with differences`} />
+                                {/* V4 (stacked): "codes missed/added by AI Coder" — número
+                                    → o que se conta → verbo → autor; o verbo já implica
+                                    a comparação com o manual. */}
                                 <Stat
                                     value={MISSED_CODES}
-                                    label="manual codes missed by AI"
+                                    label={stacked ? 'codes missed by AI Coder' : 'manual codes missed by AI'}
                                     kind="missed"
-                                    title={tooltip(DIFF.missed.label, "Codes applied in manual coding that AI Coder didn't apply. Each response counts separately.")}
+                                    title={tooltip(stacked ? DIFF.missed.v4Label : DIFF.missed.label, "Codes applied in manual coding that AI Coder didn't apply.")}
                                 />
                                 <Stat
                                     value={ADDED_CODES}
-                                    label="extra codes added by AI"
+                                    label={stacked ? 'codes added by AI Coder' : 'extra codes added by AI'}
                                     kind="added"
-                                    title={tooltip(DIFF.added.label, "Codes AI Coder applied that manual coding didn't. Each response counts separately.")}
+                                    title={tooltip(stacked ? DIFF.added.v4Label : DIFF.added.label, "Codes AI Coder applied that manual coding didn't.")}
                                 />
                             </div>
                         </section>
+                    </div>
 
                         {/* Revisão */}
-                        <section aria-label="Review the differences" style={{ display: 'flex', flexDirection: 'column' }}>
+                        <section aria-label="Review the differences" style={{ padding: `0 ${space.xl} ${space.xl}`, display: 'flex', flexDirection: 'column' }}>
+                            {/* Bloco sticky no topo do modal: título + subtítulo +
+                                toolbar (mesma da V1: visões à esquerda, filtro Code à
+                                direita, só em By response). A rolagem "trava" a
+                                partir do título; a altura do bloco (toolbarH) é o
+                                `top` do cabeçalho da tabela, que gruda logo abaixo. */}
+                            <div
+                                ref={toolbarRef}
+                                style={{ position: 'sticky', top: 0, zIndex: 2, padding: `${space.lg} 0 ${space.md}`, backgroundColor: color.surface }}
+                            >
                             <h3 style={{ margin: 0, fontSize: font.size.lg, fontWeight: font.weight.semibold, lineHeight: '24px', color: color.textDark }}>
                                 Review the differences
                             </h3>
+                            {/* Instrução + ação de cada opção do toggle, num parágrafo só. */}
                             <p style={{ margin: 0, fontSize: font.size.md, lineHeight: '20px', color: color.textDark }}>
-                                Mark which coding is correct. Responses marked Manual update the code rules.
+                                For each response below, choose which coding is correct. Keep Manual (default) to adjust AI Coder's rules to match it, or pick AI if AI Coder got it right.
                             </p>
 
-                            {/* Toolbar + cabeçalho das colunas (sticky) */}
-                            <div style={{ position: 'sticky', top: 0, zIndex: 1, backgroundColor: color.surface, paddingTop: space.md }}>
-                                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: space.md, paddingBottom: space.md }}>
-                                    <Segmented<StatusFilter>
-                                        label="Review status"
-                                        value={statusFilter}
-                                        onChange={setStatusFilter}
-                                        options={[
-                                            { value: 'all', label: `All (${DIFFS.length})` },
-                                            { value: 'todo', label: `To review (${remaining})` },
-                                            { value: 'done', label: `Reviewed (${reviewedCount})` },
-                                        ]}
-                                    />
-                                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: space.sm, fontSize: font.size.md, color: color.textSubtle }}>
+                            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: space.md, paddingTop: space.lg }}>
+                                <Segmented<View>
+                                    label="Results view"
+                                    value={view}
+                                    onChange={setView}
+                                    options={[
+                                        { value: 'response', label: `By response (${DIFFS.length})` },
+                                        { value: 'code', label: `By code (${CODE_STATS.length})` },
+                                    ]}
+                                />
+                                {view === 'response' && (
+                                    <div style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: space.sm, fontSize: font.size.md, color: color.textSubtle }}>
                                         <span aria-hidden="true">Code</span>
                                         <div style={{ width: '240px' }}>
                                             <SelectField
@@ -304,52 +376,47 @@ function QualityCheckV3({
                                             />
                                         </div>
                                     </div>
-                                    <div style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: space.md }}>
-                                        <Progress done={reviewedCount} total={DIFFS.length} />
-                                        <ModalButton
-                                            variant="tertiary"
-                                            onClick={acceptRemainingAsManual}
-                                            disabled={remaining === 0}
-                                            style={{ height: '30px', padding: `0 ${space.md}` }}
-                                        >
-                                            Accept remaining as Manual
-                                        </ModalButton>
-                                    </div>
-                                </div>
+                                )}
+                            </div>
+                            </div>
 
+                            {/* Tabelas sem overflow próprio (senão o sticky do
+                                cabeçalho não funciona); o raio fica no cabeçalho. */}
+                            {view === 'code' ? (
+                                <div style={{ border: `1px solid ${color.border}`, borderRadius: radius.lg, backgroundColor: color.surface }}>
+                                    <CodeTable stats={CODE_STATS} stickyTop={toolbarH} />
+                                </div>
+                            ) : (
+                            <div style={{ border: `1px solid ${color.border}`, borderRadius: radius.lg, backgroundColor: color.surface }}>
+                                {/* Cabeçalho das colunas — sticky logo abaixo da toolbar. */}
                                 <div
                                     role="row"
                                     style={{
-                                        ...LIST_COLUMNS,
+                                        ...listColumns(codeColumns),
                                         // Altura de 35px, igual ao header da tabela de estudos.
-                                        alignItems: 'center',
+                                        position: 'sticky',
+                                        top: toolbarH,
+                                        zIndex: 1,
+                                        alignItems: hasGridLines(codeColumns) ? 'stretch' : 'center',
                                         minHeight: '35px',
-                                        padding: `0 ${space.lg}`,
-                                        border: `1px solid ${color.border}`,
+                                        padding: hasGridLines(codeColumns) ? 0 : `0 ${space.lg}`,
+                                        borderBottom: `1px solid ${color.border}`,
                                         borderRadius: `${radius.lg} ${radius.lg} 0 0`,
                                         backgroundColor: color.surfaceSubtle,
                                     }}
                                 >
-                                    <span role="columnheader" style={columnHeader}>Response</span>
-                                    <span role="columnheader" style={columnHeader}>Differences</span>
-                                    <span role="columnheader" style={{ ...columnHeader, textAlign: 'right' }}>Correct coding</span>
+                                    {/* No stacked a linha traz a resposta e os grupos de codes. */}
+                                    <span role="columnheader" style={{ ...headerCell, ...gridCell(codeColumns) }}>{codeColumns === 'stacked' ? 'Response and codes' : 'Response'}</span>
+                                    {codeColumns === 'split' &&
+                                        CODE_GROUPS.map((g) => <span key={g} role="columnheader" style={{ ...headerCell, ...gridCell(codeColumns) }}>{g}</span>)}
+                                    {codeColumns === 'diff' && <span role="columnheader" style={{ ...headerCell, ...gridCell(codeColumns) }}>Differences</span>}
+                                    <span role="columnheader" style={{ ...headerCell, justifyContent: 'flex-end', ...gridCell(codeColumns, true) }}>Correct coding</span>
                                 </div>
-                            </div>
 
-                            <ul
-                                style={{
-                                    listStyle: 'none',
-                                    margin: 0,
-                                    padding: 0,
-                                    border: `1px solid ${color.border}`,
-                                    borderTop: 'none',
-                                    borderRadius: `0 0 ${radius.lg} ${radius.lg}`,
-                                    backgroundColor: color.surface,
-                                }}
-                            >
+                            <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
                                 {visibleRows.length === 0 ? (
                                     <li style={{ padding: space.xl, textAlign: 'center', fontSize: font.size.md, color: color.textMuted }}>
-                                        No responses match these filters.
+                                        No responses match this code.
                                     </li>
                                 ) : (
                                     visibleRows.map((r, i) => (
@@ -357,27 +424,24 @@ function QualityCheckV3({
                                             key={r.id}
                                             item={r}
                                             isLast={i === visibleRows.length - 1}
-                                            decision={decisions[r.id]}
+                                            codeColumns={codeColumns}
+                                            decision={decisionOf(r.id)}
                                             onDecide={(d) => setDecisions((prev) => ({ ...prev, [r.id]: d }))}
                                         />
                                     ))
                                 )}
                             </ul>
+                            </div>
+                            )}
                         </section>
-                    </div>
                 </div>
 
                 {/* Footer (fixo) */}
                 <div style={{ flexShrink: 0, padding: `${space.md} ${space.xl}`, borderTop: `1px solid ${color.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: space.lg, backgroundColor: color.surface }}>
-                    <span style={{ fontSize: font.size.md, color: color.textMuted, lineHeight: '20px' }}>{footerNote}</span>
+                    <span style={{ fontSize: font.size.md, color: color.textDark, lineHeight: '20px' }}>{footerNote}</span>
                     <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: space.sm }}>
                         <ModalButton variant="tertiary" onClick={onCancel}>Cancel</ModalButton>
-                        <ModalButton
-                            variant="primary"
-                            onClick={handlePrimary}
-                            disabled={remaining > 0}
-                            title={remaining > 0 ? 'Review all responses first' : undefined}
-                        >
+                        <ModalButton variant="primary" onClick={handlePrimary}>
                             {allAI ? 'Keep rules and continue' : 'Update code rules'}
                         </ModalButton>
                     </div>
@@ -392,28 +456,34 @@ function QualityCheckV3({
 // Número do summary. Com `kind`, leva o sinal (−/+) das tags da lista como
 // ícone num quadrado tingido — separado do número para não ler "−22".
 function Stat({ value, label, kind, title }: { value: ReactNode; label: string; kind?: DiffKind; title?: string }) {
-    const d = kind ? DIFF[kind] : null;
     return (
         <span title={title} style={{ display: 'inline-flex', alignItems: 'baseline', gap: '6px', whiteSpace: 'nowrap', cursor: title ? 'help' : undefined }}>
-            {d && (
-                <span
-                    aria-hidden="true"
-                    style={{ alignSelf: 'center', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '20px', height: '20px', marginRight: '2px', borderRadius: radius.sm, backgroundColor: d.tint, color: d.fill, flexShrink: 0 }}
-                >
-                    <d.Icon size={14} weight="bold" />
-                </span>
-            )}
-            <span style={{ fontSize: font.size.xl, fontWeight: font.weight.semibold, color: color.textStrong, lineHeight: '24px', fontVariantNumeric: 'tabular-nums' }}>
+            {kind && <DiffIcon kind={kind} />}
+            <span style={{ fontSize: font.size.xl, fontWeight: font.weight.semibold, color: color.textDark, lineHeight: '24px', fontVariantNumeric: 'tabular-nums' }}>
                 {value}
             </span>
-            <span style={{ fontSize: font.size.md, color: color.textMuted }}>{label}</span>
+            <span style={{ fontSize: font.size.md, color: color.textSecondary }}>{label}</span>
         </span>
     );
 }
 
+// Sinal (−/+) das tags da lista como ícone num quadrado tingido.
+function DiffIcon({ kind }: { kind: DiffKind }) {
+    const d = DIFF[kind];
+    return (
+        <span
+            aria-hidden="true"
+            style={{ alignSelf: 'center', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '20px', height: '20px', marginRight: '2px', borderRadius: radius.sm, backgroundColor: d.tint, color: d.fill, flexShrink: 0 }}
+        >
+            <d.Icon size={14} weight="bold" />
+        </span>
+    );
+}
 
 // Toolbar ------------------------------------------------------------------------
 
+// Segmented das visões (By response / By code) — mesmo visual do da V1, com
+// texto em 14px (a V1 usa 13px, que o projeto não usa mais).
 function Segmented<T extends string>({
     label,
     options,
@@ -462,23 +532,71 @@ function Segmented<T extends string>({
     );
 }
 
-function Progress({ done, total }: { done: number; total: number }) {
-    return (
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: space.sm, fontSize: font.size.md, color: color.textMuted, whiteSpace: 'nowrap' }}>
-            <span>
-                <strong style={{ fontWeight: font.weight.semibold, color: color.textStrong, fontVariantNumeric: 'tabular-nums' }}>{done} of {total}</strong> reviewed
-            </span>
-            <span
-                role="progressbar"
-                aria-valuemin={0}
-                aria-valuemax={total}
-                aria-valuenow={done}
-                aria-label={`${done} of ${total} responses reviewed`}
-                style={{ width: '80px', height: '6px', borderRadius: '3px', backgroundColor: color.tabTrack, overflow: 'hidden' }}
-            >
-                <span style={{ display: 'block', width: `${total > 0 ? (done / total) * 100 : 0}%`, height: '100%', backgroundColor: color.brandPrimary, transition: 'width 160ms' }} />
-            </span>
+// Visão By code --------------------------------------------------------------------
+
+// Tabela da visão By code — cópia da CodeTable da V1 (diagnóstico, sem
+// ações): header cinza em caixa alta, linhas de 35px, grade vertical e
+// horizontal e sort por coluna.
+type CodeSortKey = 'code' | 'onlyManual' | 'onlyAI' | 'total';
+
+function CodeTable({ stats, stickyTop }: { stats: CodeStat[]; stickyTop: number }) {
+    // Sem sort ativo, mantém a ordem padrão (total de diferenças desc).
+    const [sort, setSort] = useState<{ key: CodeSortKey; dir: SortDir } | null>(null);
+    const toggleSort = (key: CodeSortKey) => {
+        setSort((prev) => (prev?.key === key ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' }));
+    };
+    const sortedStats = sort
+        ? [...stats].sort((a, b) => {
+            const sign = sort.dir === 'asc' ? 1 : -1;
+            const diff = sort.key === 'code' ? a.code.localeCompare(b.code) : a[sort.key] - b[sort.key];
+            return sign * diff || a.code.localeCompare(b.code);
+        })
+        : stats;
+    const header = (label: string, key: CodeSortKey, align: 'left' | 'right' = 'right', last = false) => (
+        <span role="columnheader" aria-sort={sort?.key === key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'} style={{ display: 'flex', minWidth: 0 }}>
+            <SortHeader label={label} align={align} borderRight={!last} active={sort?.key === key} dir={sort?.key === key ? sort.dir : 'asc'} onClick={() => toggleSort(key)} />
         </span>
+    );
+
+    // Code · Differences · Only manual · Only AI
+    const gridCols = 'minmax(0, 440px) minmax(135px, 1fr) minmax(220px, 1fr) minmax(190px, 1fr)';
+    const gridLine = `1px solid ${color.border}`;
+    const row: CSSProperties = { display: 'grid', gridTemplateColumns: gridCols, alignItems: 'stretch', minHeight: '35px' };
+    const td = (align: 'left' | 'right', last = false): CSSProperties => ({
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: align === 'right' ? 'flex-end' : 'flex-start',
+        minWidth: 0,
+        padding: `${space.sm} ${space.md}`,
+        borderRight: last ? undefined : gridLine,
+        fontSize: font.size.md,
+        color: color.textDark,
+        fontVariantNumeric: 'tabular-nums',
+    });
+
+    return (
+        <div role="table" aria-label="Differences by code">
+            {/* Header sticky logo abaixo da toolbar (stickyTop); raio no topo
+                porque o contêiner da tabela não corta o conteúdo. */}
+            <div role="row" style={{ ...row, position: 'sticky', top: stickyTop, zIndex: 1, backgroundColor: color.surfaceSubtle, borderBottom: gridLine, borderRadius: `${radius.lg} ${radius.lg} 0 0` }}>
+                {header('Code', 'code', 'left')}
+                {header('Differences', 'total')}
+                {header('Only in manual coding', 'onlyManual')}
+                {header('Only in AI coding', 'onlyAI', 'right', true)}
+            </div>
+            {sortedStats.map((s, i) => (
+                <div
+                    key={s.code}
+                    role="row"
+                    style={{ ...row, backgroundColor: color.surface, borderBottom: i === sortedStats.length - 1 ? undefined : gridLine }}
+                >
+                    <span role="cell" style={td('left')}><span title={s.code} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.code}</span></span>
+                    <span role="cell" style={td('right')}>{s.total}</span>
+                    <span role="cell" style={td('right')}>{s.onlyManual}</span>
+                    <span role="cell" style={td('right', true)}>{s.onlyAI}</span>
+                </div>
+            ))}
+        </div>
     );
 }
 
@@ -487,22 +605,28 @@ function Progress({ done, total }: { done: number; total: number }) {
 function ReviewRow({
     item,
     isLast,
+    codeColumns,
     decision,
     onDecide,
 }: {
     item: QcDerivedResponse;
     isLast: boolean;
-    decision: QcDecision | undefined;
+    codeColumns: CodeColumns;
+    decision: QcDecision;
     onDecide: (d: QcDecision) => void;
 }) {
+    const diff = codeColumns === 'diff';
+    // Stacked (V4): resposta sempre completa, sem clamp nem "Show more".
+    const fullText = codeColumns === 'stacked';
     const textRef = useRef<HTMLParagraphElement>(null);
     const [expanded, setExpanded] = useState(false);
     const [overflows, setOverflows] = useState(false);
 
-    // "Show more" só quando o texto passa de 2 linhas ou há codes em comum
-    // (que aparecem só expandido).
+    // "Show more" só quando o texto passa de 2 linhas ou, no modo diff, há
+    // codes em comum (que aparecem só expandido; no split/stacked têm grupo
+    // próprio).
     useLayoutEffect(() => {
-        if (expanded) return;
+        if (expanded || fullText) return;
         const el = textRef.current;
         if (!el) return;
         const measure = () => setOverflows(el.scrollHeight > el.clientHeight + 1);
@@ -510,21 +634,40 @@ function ReviewRow({
         const ro = new ResizeObserver(measure);
         ro.observe(el);
         return () => ro.disconnect();
-    }, [expanded, item.text]);
+    }, [expanded, fullText, item.text]);
 
-    const canExpand = expanded || overflows || item.inBoth.length > 0;
+    const canExpand = !fullText && (expanded || overflows || (diff && item.inBoth.length > 0));
+
+    const noAICodes = item.aiCodes.length === 0 && (
+        <span
+            title={tooltip('AI applied no codes', "AI Coder didn't apply any code to this response.")}
+            style={{ fontSize: font.size.md, lineHeight: '30px', color: color.textMuted, cursor: 'help' }}
+        >
+            AI applied no codes
+        </span>
+    );
+
+    // Conteúdo dos três grupos (split e stacked): todos os codes da resposta,
+    // sem sinal (o grupo já diz o tipo).
+    const groupContents: Record<CodeGroup, ReactNode> = {
+        'Matched in both': item.inBoth.length > 0 ? item.inBoth.map((c) => <MatchedChip key={c} code={c} />) : <EmptyCell />,
+        'Only in manual coding': item.onlyManual.length > 0 ? item.onlyManual.map((c) => <DiffChip key={c} kind="missed" code={c} showSign={false} v4Term={codeColumns === 'stacked'} />) : <EmptyCell />,
+        'Only in AI coding': item.onlyAI.length > 0 ? item.onlyAI.map((c) => <DiffChip key={c} kind="added" code={c} showSign={false} v4Term={codeColumns === 'stacked'} />) : noAICodes || <EmptyCell />,
+    };
 
     return (
         <li
             style={{
-                ...LIST_COLUMNS,
-                alignItems: 'start',
-                padding: `${space.md} ${space.lg}`,
+                ...listColumns(codeColumns),
+                // diff/split: células esticam na altura toda (divisória de ponta
+                // a ponta) e o padding fica em cada célula (gridCell).
+                alignItems: hasGridLines(codeColumns) ? 'stretch' : 'start',
+                padding: hasGridLines(codeColumns) ? 0 : space.lg,
                 borderBottom: isLast ? undefined : `1px solid ${color.border}`,
             }}
         >
-            {/* Resposta: 2 linhas + "Show more". */}
-            <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: space.xs, alignItems: 'flex-start' }}>
+            {/* Resposta: 2 linhas + "Show more" (no stacked, sempre completa). */}
+            <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: space.xs, alignItems: 'flex-start', ...gridCell(codeColumns) }}>
                 <p
                     ref={textRef}
                     style={{
@@ -532,38 +675,59 @@ function ReviewRow({
                         fontSize: font.size.md,
                         lineHeight: '21px',
                         color: color.textVerbatim,
-                        ...(expanded ? null : { display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }),
+                        ...(expanded || fullText ? null : { display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }),
                     }}
                 >
                     {item.text}
                 </p>
-                {expanded && item.inBoth.length > 0 && (
-                    <span style={{ fontSize: font.size.md, lineHeight: '20px', color: color.textMuted }}>
-                        Matched in both: {item.inBoth.join(', ')}
-                    </span>
+                {diff && expanded && item.inBoth.length > 0 && (
+                    // Codes em comum (só expandido): rótulo em cima, tags embaixo.
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: space.xs }}>
+                        <span style={{ fontSize: font.size.md, lineHeight: '20px', color: color.textMuted }}>Matched in both:</span>
+                        <ChipCell>{item.inBoth.map((c) => <MatchedChip key={c} code={c} />)}</ChipCell>
+                    </div>
                 )}
                 {canExpand && (
                     <button type="button" style={linkButton} aria-expanded={expanded} onClick={() => setExpanded((v) => !v)}>
                         {expanded ? 'Show less' : 'Show more'}
                     </button>
                 )}
-            </div>
 
-            {/* Diferenças como diff: − missed / + added. */}
-            <div style={{ minWidth: 0, display: 'flex', flexWrap: 'wrap', gap: space.xs }}>
-                {item.onlyManual.map((c) => <DiffChip key={`m-${c}`} kind="missed" code={c} />)}
-                {item.onlyAI.map((c) => <DiffChip key={`a-${c}`} kind="added" code={c} />)}
-                {item.aiCodes.length === 0 && (
-                    <span
-                        title={tooltip('AI applied no codes', "AI Coder didn't apply any code to this response.")}
-                        style={{ fontSize: font.size.md, lineHeight: '30px', color: color.textMuted, cursor: 'help' }}
+                {/* Stacked: os três grupos abaixo do texto, rótulo numa coluna
+                    fixa à esquerda (alinhado entre respostas) e chips ao lado. */}
+                {codeColumns === 'stacked' && (
+                    <div
+                        style={{
+                            alignSelf: 'stretch',
+                            display: 'grid',
+                            gridTemplateColumns: '184px minmax(0, 1fr)',
+                            columnGap: space.md,
+                            rowGap: space.xs,
+                            marginTop: space.sm,
+                        }}
                     >
-                        AI applied no codes
-                    </span>
+                        {STACKED_GROUPS.map((g) => (
+                            <Fragment key={g}>
+                                <span style={{ ...columnHeader, lineHeight: '30px', fontWeight: font.weight.medium, color: color.textDark }}>{g}</span>
+                                <ChipCell>{groupContents[g]}</ChipCell>
+                            </Fragment>
+                        ))}
+                    </div>
                 )}
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            {codeColumns === 'split' && CODE_GROUPS.map((g) => <ChipCell key={g} style={gridCell(codeColumns)}>{groupContents[g]}</ChipCell>)}
+
+            {diff && (
+                // Diferenças como diff: − missed / + added.
+                <ChipCell style={gridCell(codeColumns)}>
+                    {item.onlyManual.map((c) => <DiffChip key={`m-${c}`} kind="missed" code={c} />)}
+                    {item.onlyAI.map((c) => <DiffChip key={`a-${c}`} kind="added" code={c} />)}
+                    {noAICodes}
+                </ChipCell>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-start', ...gridCell(codeColumns, true) }}>
                 <DecisionToggle label={`Correct coding for ${item.id}`} value={decision} onChange={onDecide} />
             </div>
         </li>
@@ -572,12 +736,13 @@ function ReviewRow({
 
 // Chip de code — mesmo visual do Chip da V2 / Ascribe (fundo branco, borda
 // cinza sem a lateral esquerda, barra de 3px à esquerda), copiado aqui para
-// não acoplar a V3 à V2. Única variação: a cor da barra.
+// não acoplar a V3 à V2. Única variação: a cor da barra. O nome nunca é
+// cortado: sem espaço, o chip quebra em mais linhas.
 const codeChipStyle: CSSProperties = {
     position: 'relative',
     display: 'inline-flex',
-    alignItems: 'center',
-    maxWidth: 'min(260px, 100%)',
+    alignItems: 'flex-start',
+    maxWidth: '100%',
     padding: '4px 10px',
     backgroundColor: color.surface,
     border: `1px solid ${color.borderInput}`,
@@ -587,10 +752,9 @@ const codeChipStyle: CSSProperties = {
     fontWeight: font.weight.medium,
     lineHeight: '20px',
     color: color.textDark,
-    whiteSpace: 'nowrap',
 };
 
-const codeChipLabel: CSSProperties = { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
+const codeChipLabel: CSSProperties = { minWidth: 0, overflowWrap: 'anywhere' };
 
 function CodeChipAccent({ fill }: { fill: string }) {
     return (
@@ -602,21 +766,53 @@ function CodeChipAccent({ fill }: { fill: string }) {
 }
 
 // Diferença na lista: chip de code com a barra na cor da série (âmbar =
-// missed, azul = added) + sinal −/+ na mesma cor (reforço além da cor).
-function DiffChip({ kind, code }: { kind: DiffKind; code: string }) {
+// missed, azul = added) + sinal −/+ na mesma cor (reforço além da cor). No
+// modo split o sinal sai (`showSign={false}`): a coluna já diz o tipo.
+// `v4Term` (V4): a 1ª linha da tooltip usa "Missed/Added by AI Coder"
+// em vez de "Missed/Added by AI".
+function DiffChip({ kind, code, showSign = true, v4Term = false }: { kind: DiffKind; code: string; showSign?: boolean; v4Term?: boolean }) {
     const d = DIFF[kind];
+    const term = v4Term ? d.v4Label : d.label;
     return (
-        <span title={tooltip(d.label, d.explain(code))} style={{ ...codeChipStyle, gap: '6px', cursor: 'help' }}>
+        <span title={tooltip(term, d.explain(code))} style={{ ...codeChipStyle, gap: '6px', cursor: 'help' }}>
             <CodeChipAccent fill={d.fill} />
-            <span aria-hidden="true" style={{ fontWeight: font.weight.semibold, color: d.fill }}>{d.sign}</span>
-            <span style={visuallyHidden}>{d.label}: </span>
+            {showSign && <span aria-hidden="true" style={{ fontWeight: font.weight.semibold, color: d.fill }}>{d.sign}</span>}
+            <span style={visuallyHidden}>{term}: </span>
             <span style={codeChipLabel}>{code}</span>
         </span>
     );
 }
 
-// Decisão ("Manual | AI"). Sem valor = não revisada (nenhuma metade marcada).
-function DecisionToggle({ label, value, onChange }: { label: string; value: QcDecision | undefined; onChange: (d: QcDecision) => void }) {
+// Code aplicado pelos dois lados (split/stacked): chip padrão, barra roxa.
+function MatchedChip({ code }: { code: string }) {
+    return (
+        <span
+            title={tooltip('Matched in both', `Manual coding and AI Coder both applied "${code}" to this response.`)}
+            style={{ ...codeChipStyle, cursor: 'help' }}
+        >
+            <CodeChipAccent fill={color.codeChipAccent} />
+            <span style={codeChipLabel}>{code}</span>
+        </span>
+    );
+}
+
+// alignContent: as linhas de chips ficam no topo mesmo quando a célula estica
+// na altura da linha da tabela (modo com divisórias).
+function ChipCell({ children, style }: { children: ReactNode; style?: CSSProperties }) {
+    return <div style={{ minWidth: 0, display: 'flex', flexWrap: 'wrap', alignContent: 'flex-start', gap: space.xs, ...style }}>{children}</div>;
+}
+
+// Célula sem codes (modo split).
+function EmptyCell() {
+    return (
+        <span aria-label="None" style={{ fontSize: font.size.md, lineHeight: '30px', color: color.textFaint }}>
+            —
+        </span>
+    );
+}
+
+// Decisão ("Manual | AI"). Manual vem selecionado por padrão.
+function DecisionToggle({ label, value, onChange }: { label: string; value: QcDecision; onChange: (d: QcDecision) => void }) {
     const options: { value: QcDecision; label: string }[] = [
         { value: 'manual', label: 'Manual' },
         { value: 'ai', label: 'AI' },

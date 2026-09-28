@@ -464,7 +464,7 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
                             {/* Instrução principal (topo). O search fica na linha do escopo,
                                 logo acima da tabela — mantendo sua posição original. */}
                             <p style={{ flexShrink: 0, margin: 0, fontSize: font.size.md, color: color.textDark, lineHeight: '20px' }}>
-                                Select the studies and questions to recreate this codebook as an AI Coder codebook.
+                                Select the studies and questions that will be used to train the AI Coder version of this codebook.
                                 <span
                                     title={"We'll use your selection to generate the new codebook's codes and rules.\nSelecting a study includes all of its questions."}
                                     aria-label="We'll use your selection to generate the new codebook's codes and rules. Selecting a study includes all of its questions."

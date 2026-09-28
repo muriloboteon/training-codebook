@@ -3,7 +3,7 @@ import { SealCheck } from '@phosphor-icons/react';
 import './accountCodebookRulesModal.css';
 import QualityCheckPanel from './QualityCheckPanel';
 import QualityCheckSampleModal from './QualityCheckSampleModal';
-import QualityCheckV2 from './QualityCheckV2';
+import QualityCheckPrototype from './QualityCheckPrototype';
 import GenerateRulesProcessingModal from './GenerateRulesProcessingModal';
 import ModalButton from './ModalButton';
 import type { TrainingQuestion } from './RecreateCodebookModal';
@@ -758,8 +758,9 @@ function AccountCodebookRulesModal({ isOpen, sampleQuestions = [], onClose, onCr
             "Update rules" passa pelo processamento pós-relatório (applying) e,
             ao concluir, reaproveita o refino do pai (applyQualityCheck: tag
             Refined nos codes afetados); "Keep rules and continue" conclui o QC
-            sem mudanças e sem processamento. */}
-        <QualityCheckV2
+            sem mudanças e sem processamento. O QualityCheckPrototype alterna
+            entre o layout atual (V2) e o proposto (V3) por um switch no header. */}
+        <QualityCheckPrototype
             key={v2RunId}
             isOpen={qcPhase === 'v2'}
             sampleQuestion={sampleQuestion}

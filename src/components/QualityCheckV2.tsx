@@ -1,10 +1,10 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import { X } from '@phosphor-icons/react';
 import { color, font, radius, space, shadow } from '../tokens';
 import { SortHeader, type SortDir, type TrainingQuestion } from './RecreateCodebookModal';
 import ModalButton from './ModalButton';
 import SelectField from './SelectField';
-import { FALLBACK_SAMPLE, SAMPLE_RESPONSES, type QcDerivedResponse } from './qualityCheckV2Data';
+import { FALLBACK_SAMPLE, SAMPLE_RESPONSES, type QcDecision, type QcDerivedResponse } from './qualityCheckV2Data';
 
 // -----------------------------------------------------------------------------
 // QualityCheckV2 — nova experiência do Quality Check, construída do zero em
@@ -32,7 +32,7 @@ import { FALLBACK_SAMPLE, SAMPLE_RESPONSES, type QcDerivedResponse } from './qua
 // Protótipo puramente visual: nada é persistido.
 // -----------------------------------------------------------------------------
 
-type Decision = 'manual' | 'ai';
+type Decision = QcDecision;
 type View = 'response' | 'code';
 
 // Números da amostra (todos derivados dos dados) ------------------------------
@@ -159,6 +159,12 @@ interface QualityCheckV2Props {
     /** "Keep rules and continue": todas as respostas marcadas AI. */
     onKeepRules: () => void;
     onCancel: () => void;
+    /** Decisão por resposta, controlada pelo QualityCheckPrototype (compartilhada
+     *  com a V3 no switch de layout). Ausente = Manual (default desta versão). */
+    decisions: Record<string, Decision>;
+    onDecisionsChange: Dispatch<SetStateAction<Record<string, Decision>>>;
+    /** Slot no header, à esquerda do X (switch de layout do protótipo). */
+    headerExtra?: ReactNode;
 }
 
 function QualityCheckV2({
@@ -167,11 +173,12 @@ function QualityCheckV2({
     onUpdateRules,
     onKeepRules,
     onCancel,
+    decisions,
+    onDecisionsChange: setDecisions,
+    headerExtra,
 }: QualityCheckV2Props) {
     const [view, setView] = useState<View>('response');
     const [codeFilter, setCodeFilter] = useState<string>('');
-    // Decisão por resposta. Ausente = Manual (default).
-    const [decisions, setDecisions] = useState<Record<string, Decision>>({});
     const resultsRef = useRef<HTMLDivElement>(null);
 
     // Fecha com ESC.
@@ -260,6 +267,8 @@ function QualityCheckV2({
                     <span style={{ fontSize: font.size.xl, fontWeight: font.weight.semibold, color: color.textDark }}>
                         Quality check
                     </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: space.md }}>
+                    {headerExtra}
                     <button
                         type="button"
                         aria-label="Close"
@@ -270,6 +279,7 @@ function QualityCheckV2({
                     >
                         <X size={18} weight="bold" />
                     </button>
+                    </div>
                 </div>
 
                 {/* Body — área de rolagem; tudo rola junto (nada fixo no topo). */}

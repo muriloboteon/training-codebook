@@ -31,6 +31,9 @@ export interface QcResponse {
     aiCodes: string[];
 }
 
+/** Qual codificação o usuário marcou como correta numa resposta com diferença. */
+export type QcDecision = 'manual' | 'ai';
+
 export interface QcDerivedResponse extends QcResponse {
     inBoth: string[];
     onlyManual: string[];

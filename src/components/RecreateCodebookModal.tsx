@@ -277,7 +277,7 @@ export interface TrainingQuestion {
 interface RecreateCodebookModalProps {
     isOpen: boolean;
     onClose: () => void;
-    /** Chamado ao confirmar "Generate" no modal de Instructions, com as
+    /** Chamado ao confirmar "Start training" no modal de Instructions, com as
      *  perguntas selecionadas. O pai abre a etapa de processamento por cima;
      *  este modal permanece aberto atrás, visível pelo overlay do processamento. */
     onGenerate: (questions: TrainingQuestion[]) => void;
@@ -293,7 +293,7 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
     // asc = Open primeiro, depois alfabético (aplica-se a todos os sub-grids).
     const [studySort, setStudySort] = useState<{ key: StudySortKey; dir: SortDir } | null>(null);
     const [questionSort, setQuestionSort] = useState<{ key: QuestionSortKey; dir: SortDir }>({ key: 'type', dir: 'asc' });
-    // Etapa 2: modal de Instructions, aberto ao clicar "Generate codebook rules".
+    // Etapa 2: modal de Instructions, aberto ao clicar "Train codebook".
     const [showInstructions, setShowInstructions] = useState(false);
 
     // Protótipo: todos os codebooks exibem a mesma lista completa de estudos
@@ -730,7 +730,7 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
                                 disabled={!canProceed}
                                 onClick={() => setShowInstructions(true)}
                             >
-                                Generate codebook rules
+                                Train codebook
                             </ModalButton>
                         )}
                     </div>
@@ -738,7 +738,7 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
             </div>
         </div>
 
-        {/* Etapa 2 — modal de Instructions (abre ao clicar "Generate codebook rules") */}
+        {/* Etapa 2 — modal de Instructions (abre ao clicar "Train codebook") */}
         {showInstructions && (
             <div
                 role="dialog"
@@ -838,7 +838,7 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
                                     );
                                 }}
                             >
-                                Generate
+                                Start training
                             </ModalButton>
                         </div>
                     </div>

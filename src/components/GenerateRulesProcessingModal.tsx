@@ -45,7 +45,7 @@ function GenerateRulesProcessingModal({
     isOpen,
     onComplete,
     onCancel,
-    ariaLabel = 'Generating codebook rules',
+    ariaLabel = 'Training codebook',
     title = 'Analyzing your responses…',
     subtitle = 'We are reviewing your selected data to generate the codebook rules.',
     durationMs = PROCESS_MS,

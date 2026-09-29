@@ -14,6 +14,7 @@
 // ---------------------------------------------------------------------------
 export const font = {
     family: "Figtree, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    familyMono: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace", // textarea de nets/codes, Input IDs
     size: {
         xs: "10px",   // caret indicators
         sm: "12px",   // tags, table headers

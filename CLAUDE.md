@@ -21,7 +21,13 @@ to remove it later, stop rendering it in `App.tsx`.
 - dark top navigation titled **Account Codebooks**;
 - a tab switcher for **Coder** and **AI Coder**;
 - a shared **Actions** menu whose only item is **Export to Excel**;
-- a **New Codebook** button;
+- a **New Codebook** button — on the AI Coder tab it opens `src/components/NewAICodebookModal.tsx`
+  (Codebook ID + Nets and codes). Nets and codes has two sources via a segmented control: "Enter nets
+  and codes" (indented textarea + live preview, optional leading-number Input IDs) and "Copy from
+  existing codebook" (Coder / AI coder source radio + dropdown of mock codebooks + preview). "Import from Excel"
+  and "Download template" are visual only (not implemented). "Create codebook" adds a row to the AI Coder table
+  (Source ID "User defined"; Apply Training, Apply Coding and GAI checked; in-memory only); on the Coder tab
+  its behavior is not defined yet (click does nothing);
 - independent search state for each tab;
 - table-settings and refresh icon buttons.
 

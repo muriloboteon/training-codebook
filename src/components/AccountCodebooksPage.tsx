@@ -11,6 +11,7 @@ import {
 import { color, font, radius, shadow } from '../tokens';
 import CoderCodebooksTable from './CoderCodebooksTable';
 import AICodebooksTable, { type AICodebook } from './AICodebooksTable';
+import NewAICodebookModal, { type CodebookStructure } from './NewAICodebookModal';
 
 // -----------------------------------------------------------------------------
 // AccountCodebooksPage — compõe o protótipo de Account Codebooks:
@@ -36,7 +37,14 @@ function AccountCodebooksPage() {
     const [, setAICodebooksSelectedCount] = useState(0);
     // Codebooks de IA criados em runtime pelo fluxo "Create Codebook" do Coder.
     const [createdAICodebooks, setCreatedAICodebooks] = useState<AICodebook[]>([]);
+    const [isNewAICodebookModalOpen, setIsNewAICodebookModalOpen] = useState(false);
     const actionsMenuRef = useRef<HTMLDivElement>(null);
+
+    // New Codebook: na aba AI Coder abre o modal de criação. Na aba Coder o
+    // comportamento será diferente (ainda não definido) — por ora não faz nada.
+    const handleNewCodebookClick = () => {
+        if (activeTab === 'ai-coder') setIsNewAICodebookModalOpen(true);
+    };
 
     // Cria um registro no AI Coder a partir de um codebook de Coder. O id segue a
     // convenção de nomenclatura: "{origem} - AI" por padrão, ou "{origem} – AI
@@ -64,7 +72,28 @@ function AccountCodebooksPage() {
         setActiveTab('ai-coder');
     };
 
-    const activeSearchQuery = activeTab === 'coder' ? coderSearchQuery : aiCodebooksSearchQuery;
+    // Grava o registro criado pelo modal "New Codebook" (aba AI Coder). Source ID
+    // fixo "User defined"; marcados apenas Apply Training, Apply Coding e GAI.
+    // Codes = total de codes da estrutura (inclui os sem net). Novos itens vão
+    // para o topo (dedupe por id). Protótipo: nada é persistido, some ao recarregar.
+    const handleCreateUserDefinedAICodebook = (codebookId: string, structure: CodebookStructure) => {
+        const pad = (n: number) => String(n).padStart(2, '0');
+        const now = new Date();
+        const newCodebook: AICodebook = {
+            id: codebookId,
+            date: `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()}`,
+            codes: structure.orphans.length + structure.nets.reduce((n, net) => n + net.codes.length, 0),
+            applyRegex: false,
+            applyTraining: true,
+            applyCoding: true,
+            sourceId: 'User defined',
+            trained: false,
+            gai: true,
+        };
+        setCreatedAICodebooks((prev) => [newCodebook, ...prev.filter((c) => c.id !== newCodebook.id)]);
+    };
+
+    const activeSearchQuery =activeTab === 'coder' ? coderSearchQuery : aiCodebooksSearchQuery;
 
     const updateActiveSearchQuery = (value: string) => {
         if (activeTab === 'coder') {
@@ -279,6 +308,7 @@ function AccountCodebooksPage() {
                     {/* New Codebook (CTA primário) */}
                     <button
                         type="button"
+                        onClick={handleNewCodebookClick}
                         {...primaryStateHandlers}
                         style={{
                             display: "flex",
@@ -395,6 +425,12 @@ function AccountCodebooksPage() {
                     />
                 )}
             </div>
+
+            <NewAICodebookModal
+                isOpen={isNewAICodebookModalOpen}
+                onClose={() => setIsNewAICodebookModalOpen(false)}
+                onCreate={handleCreateUserDefinedAICodebook}
+            />
         </div>
     );
 }

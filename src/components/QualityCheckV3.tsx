@@ -97,7 +97,9 @@ const DIFF = {
         // quem age.
         v4Label: 'Missed by AI Coder',
         sign: '−',
-        explain: (code: string) => `Manual coding applied "${code}" to this response. AI Coder didn't.`,
+        // Chips: nome da coluna (leitor de tela) e tooltip curta, sem título.
+        column: 'Only in manual coding',
+        chipTooltip: "Manual coding applied this code, but AI Coder didn't.",
     },
     added: {
         fill: color.info,
@@ -106,7 +108,8 @@ const DIFF = {
         label: 'Added by AI',
         v4Label: 'Added by AI Coder',
         sign: '+',
-        explain: (code: string) => `AI Coder applied "${code}" to this response. Manual coding didn't.`,
+        column: 'Only in AI coding',
+        chipTooltip: "AI Coder applied this code, but manual coding didn't.",
     },
 } as const;
 
@@ -895,8 +898,8 @@ function ReviewRow({
     // sem sinal (o grupo já diz o tipo).
     const groupContents: Record<CodeGroup, ReactNode> = {
         'Matched in both': item.inBoth.length > 0 ? item.inBoth.map((c) => <MatchedChip key={c} code={c} />) : <EmptyCell />,
-        'Only in manual coding': item.onlyManual.length > 0 ? item.onlyManual.map((c) => <DiffChip key={c} kind="missed" code={c} showSign={false} v4Term={codeColumns === 'stacked'} />) : <EmptyCell />,
-        'Only in AI coding': item.onlyAI.length > 0 ? item.onlyAI.map((c) => <DiffChip key={c} kind="added" code={c} showSign={false} v4Term={codeColumns === 'stacked'} />) : noAICodes || <EmptyCell />,
+        'Only in manual coding': item.onlyManual.length > 0 ? item.onlyManual.map((c) => <DiffChip key={c} kind="missed" code={c} showSign={false} />) : <EmptyCell />,
+        'Only in AI coding': item.onlyAI.length > 0 ? item.onlyAI.map((c) => <DiffChip key={c} kind="added" code={c} showSign={false} />) : noAICodes || <EmptyCell />,
     };
 
     return (
@@ -1020,16 +1023,15 @@ function CodeChipAccent({ fill }: { fill: string }) {
 // Diferença na lista: chip de code com a barra na cor da série (âmbar =
 // missed, azul = added) + sinal −/+ na mesma cor (reforço além da cor). No
 // modo split o sinal sai (`showSign={false}`): a coluna já diz o tipo.
-// `v4Term` (V4): a 1ª linha da tooltip usa "Missed/Added by AI Coder"
-// em vez de "Missed/Added by AI".
-function DiffChip({ kind, code, showSign = true, v4Term = false }: { kind: DiffKind; code: string; showSign?: boolean; v4Term?: boolean }) {
+// Tooltip: uma frase curta, sem título, dizendo quem aplicou o code. O texto
+// para leitor de tela usa o nome da coluna ("Only in manual coding: …").
+function DiffChip({ kind, code, showSign = true }: { kind: DiffKind; code: string; showSign?: boolean }) {
     const d = DIFF[kind];
-    const term = v4Term ? d.v4Label : d.label;
     return (
-        <span title={tooltip(term, d.explain(code))} style={{ ...codeChipStyle, gap: '6px', cursor: 'help' }}>
+        <span title={d.chipTooltip} style={{ ...codeChipStyle, gap: '6px', cursor: 'help' }}>
             <CodeChipAccent fill={d.fill} />
             {showSign && <span aria-hidden="true" style={{ fontWeight: font.weight.semibold, color: d.fill }}>{d.sign}</span>}
-            <span style={visuallyHidden}>{term}: </span>
+            <span style={visuallyHidden}>{d.column}: </span>
             <span style={codeChipLabel}>{code}</span>
         </span>
     );
@@ -1039,7 +1041,7 @@ function DiffChip({ kind, code, showSign = true, v4Term = false }: { kind: DiffK
 function MatchedChip({ code }: { code: string }) {
     return (
         <span
-            title={tooltip('Matched in both', `Manual coding and AI Coder both applied "${code}" to this response.`)}
+            title="Manual coding and AI Coder both applied this code."
             style={{ ...codeChipStyle, cursor: 'help' }}
         >
             <CodeChipAccent fill={color.codeChipAccent} />

@@ -370,7 +370,7 @@ function QualityCheckV3({
                                 <div style={{ flex: '9999 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column', fontSize: font.size.md, lineHeight: '20px' }}>
                                     <span
                                         title={question}
-                                        style={{ fontWeight: font.weight.semibold, color: color.textDark, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                                        style={{ fontWeight: font.weight.medium, color: color.textDark, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
                                     >
                                         {question}
                                     </span>

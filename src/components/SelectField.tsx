@@ -4,8 +4,8 @@ import caretDown from '../assets/caret-down.svg';
 
 // -----------------------------------------------------------------------------
 // SelectField — dropdown de seleção única (Figma "Claude-export" › Select Field,
-// node 268:681): label + trigger com caret + lista flutuante abaixo, e helper
-// text opcional sob o trigger.
+// node 268:681): label + trigger com caret + lista flutuante abaixo. Opcionais:
+// description entre o label e o trigger, e helper text sob o trigger.
 //
 // A lista é posicionada em absoluto sob o trigger, então o container pai não
 // pode ter overflow: hidden. Teclado: ↑/↓ navegam, Enter/Espaço escolhem, Esc
@@ -26,13 +26,16 @@ interface SelectFieldProps {
     options: SelectOption[];
     value: string | null;
     onChange: (value: string) => void;
+    /** Descrição logo abaixo do label, acima do trigger — para o que deve ser
+     *  lido antes de escolher. */
+    description?: string;
     /** Texto de apoio abaixo do trigger (a lista aberta flutua sobre ele). */
     helperText?: string;
     /** 'md' (padrão, Figma) = 40px de altura; 'sm' = 32px, para toolbars. */
     size?: 'md' | 'sm';
 }
 
-function SelectField({ label, ariaLabel, placeholder, options, value, onChange, helperText, size = 'md' }: SelectFieldProps) {
+function SelectField({ label, ariaLabel, placeholder, options, value, onChange, description, helperText, size = 'md' }: SelectFieldProps) {
     const [open, setOpen] = useState(false);
     // Item destacado por hover/teclado enquanto a lista está aberta.
     const [activeIndex, setActiveIndex] = useState(-1);
@@ -96,10 +99,20 @@ function SelectField({ label, ariaLabel, placeholder, options, value, onChange, 
 
     return (
         <div ref={rootRef} style={{ display: 'flex', flexDirection: 'column', gap: space.sm, fontFamily: font.family }}>
-            {label && (
-                <label id={`${id}-label`} htmlFor={`${id}-trigger`} style={{ fontSize: font.size.md, fontWeight: font.weight.medium, lineHeight: '20px', color: color.textDark }}>
-                    {label}
-                </label>
+            {/* Label + description (sem gap entre eles, lidos como um bloco só). */}
+            {(label || description) && (
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    {label && (
+                        <label id={`${id}-label`} htmlFor={`${id}-trigger`} style={{ fontSize: font.size.md, fontWeight: font.weight.medium, lineHeight: '20px', color: color.textDark }}>
+                            {label}
+                        </label>
+                    )}
+                    {description && (
+                        <span id={`${id}-description`} style={{ fontSize: font.size.md, lineHeight: '20px', color: color.textSecondary }}>
+                            {description}
+                        </span>
+                    )}
+                </div>
             )}
 
             {/* Trigger + helper text (4px entre eles, como o gap do Figma). */}
@@ -116,7 +129,7 @@ function SelectField({ label, ariaLabel, placeholder, options, value, onChange, 
                         aria-controls={`${id}-list`}
                         aria-labelledby={label ? `${id}-label ${id}-trigger` : undefined}
                         aria-label={label ? undefined : ariaLabel}
-                        aria-describedby={helperText ? `${id}-helper` : undefined}
+                        aria-describedby={[description && `${id}-description`, helperText && `${id}-helper`].filter(Boolean).join(' ') || undefined}
                         onClick={() => (open ? setOpen(false) : openList())}
                         onKeyDown={onKeyDown}
                         style={{
@@ -125,10 +138,12 @@ function SelectField({ label, ariaLabel, placeholder, options, value, onChange, 
                             justifyContent: 'space-between',
                             gap: space.sm,
                             width: '100%',
-                            // Vertical: 'md' 10px → 40px; 'sm' 5px → 32px (texto de 20px + bordas).
-                            padding: size === 'sm'
-                                ? (open ? `4.5px ${space.md}` : '5px 12.5px')
-                                : (open ? `10px ${space.md}` : '10.5px 12.5px'),
+                            // Altura fixa ('md' 40px, 'sm' 32px) com border-box: a borda mais
+                            // grossa do estado aberto não muda a altura. Na horizontal, o
+                            // padding compensa a diferença de borda.
+                            height: size === 'sm' ? '32px' : '40px',
+                            boxSizing: 'border-box',
+                            padding: open ? `0 ${space.md}` : '0 12.5px',
                             border: open ? `1.5px solid ${color.brandHover}` : `1px solid ${color.borderControl}`,
                             borderRadius: radius.lg,
                             backgroundColor: color.surface,
@@ -217,7 +232,7 @@ function SelectField({ label, ariaLabel, placeholder, options, value, onChange, 
                 </div>
 
                 {helperText && (
-                    <span id={`${id}-helper`} style={{ fontSize: font.size.md, lineHeight: '20px', color: color.textSubtle }}>
+                    <span id={`${id}-helper`} style={{ fontSize: font.size.md, lineHeight: '20px', color: color.textSecondary }}>
                         {helperText}
                     </span>
                 )}

@@ -101,15 +101,15 @@ function QualityCheckSampleModal({ isOpen, questions, onRun, onCancel }: Quality
                 </div>
 
                 {/* Body — dropdown com as perguntas do treino (seleção única) */}
-                <div style={{ padding: `${space.lg} ${space.xl}` }}>
+                <div style={{ padding: space.xl }}>
                     <SelectField
                         label="Select a question to sample from"
                         placeholder="Select a question"
                         options={questions.map((q) => ({ value: q.id, label: q.text }))}
                         value={selectedId}
                         onChange={setSelectedId}
-                        // Helper da amostragem: o AI Coder roda só em 10% das respostas.
-                        helperText="The AI Coder will run on a 10% sample of the selected question's responses."
+                        // Descrição da amostragem: o AI Coder roda só em 10% das respostas.
+                        description="The AI Coder will run on a 10% sample of the selected question's responses."
                     />
                 </div>
 

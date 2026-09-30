@@ -532,7 +532,7 @@ const requiredMarkStyle: React.CSSProperties = {
 const helperStyle: React.CSSProperties = {
     fontSize: font.size.sm,
     lineHeight: '18px',
-    color: color.textSubtle,
+    color: color.textSecondary,
 };
 
 const controlStyle: React.CSSProperties = {

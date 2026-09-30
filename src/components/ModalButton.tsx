@@ -10,7 +10,8 @@ import { color, font, radius, space } from '../tokens';
 // disabled. Todas as cores vêm de tokens.ts (button state colors).
 //
 // Specs do Figma:
-//   - Label: Figtree SemiBold 14 / lineHeight 20 (font.size.md + semibold)
+//   - Label: Figtree Medium 14 / lineHeight 20 (font.size.md + medium; o Figma
+//     usa SemiBold, trocado para Medium por decisão de produto)
 //   - Radius: 8px (radius.lg) · Altura: 34px · Padding horizontal: 16px · gap 8px
 //   - Primary  : bg #55198a → hover #681eab → active #4b1679 · texto #fff
 //                disabled: bg #d6dde1, texto #889ea8
@@ -50,7 +51,7 @@ function ModalButton({ variant, children, onClick, disabled = false, type = 'but
         borderRadius: radius.lg,
         fontFamily: font.family,
         fontSize: font.size.md,
-        fontWeight: font.weight.semibold,
+        fontWeight: font.weight.medium,
         lineHeight: '20px',
         cursor: disabled ? 'not-allowed' : 'pointer',
         whiteSpace: 'nowrap',

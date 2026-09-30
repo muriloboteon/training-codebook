@@ -35,6 +35,16 @@ import { FALLBACK_SAMPLE, SAMPLE_RESPONSES, type QcDecision, type QcDerivedRespo
 //     texto da resposta, empilhados (rótulo à esquerda, chips ao lado). A
 //     tabela fica só com Response · Correct coding.
 //
+// Só no split (V3), por feedback do design director:
+//   - Summary: pergunta à esquerda e os mesmos stats da V4 (14px) à direita,
+//     numa linha; sem espaço, o bloco de stats desce inteiro para a 2ª linha.
+//     Os totais de missed/added também aparecem nos cabeçalhos das colunas
+//     "Only in manual coding" / "Only in AI coding".
+//   - A instrução da revisão sobe para o header do modal (sem o título
+//     "Review the differences"; o
+//     bloco sticky fica só com a toolbar).
+//   - Menos espaço em volta do modal: 95vw × calc(100vh - 48px).
+//
 // Protótipo puramente visual: nada é persistido.
 // -----------------------------------------------------------------------------
 
@@ -158,6 +168,16 @@ type CodeGroup = 'Matched in both' | 'Only in manual coding' | 'Only in AI codin
 const CODE_GROUPS: CodeGroup[] = ['Matched in both', 'Only in manual coding', 'Only in AI coding'];
 const STACKED_GROUPS: CodeGroup[] = ['Only in manual coding', 'Only in AI coding', 'Matched in both'];
 
+// Split (V3): totais da amostra nos cabeçalhos das colunas de diferença (no
+// lugar dos stats de missed/added do summary). "Matched in both" sem total.
+const GROUP_HEADER_TOTALS: Partial<Record<CodeGroup, { value: number; title: string }>> = {
+    'Only in manual coding': { value: MISSED_CODES, title: tooltip(DIFF.missed.label, "Codes applied in manual coding that AI Coder didn't apply.") },
+    'Only in AI coding': { value: ADDED_CODES, title: tooltip(DIFF.added.label, "Codes AI Coder applied that manual coding didn't.") },
+};
+
+// Instrução da revisão (acima da toolbar; no split, no header do modal).
+const REVIEW_INSTRUCTION = "For each response below, choose which coding is correct. Keep Manual (default) to adjust AI Coder's rules to match it, or pick AI if AI Coder got it right.";
+
 // -----------------------------------------------------------------------------
 
 interface QualityCheckV3Props {
@@ -217,12 +237,15 @@ function QualityCheckV3({
     if (!isOpen) return null;
 
     const stacked = codeColumns === 'stacked';
+    const split = codeColumns === 'split';
     const decisionOf = (id: string): QcDecision => decisions[id] ?? 'manual';
     const manualRows = DIFFS.filter((r) => decisionOf(r.id) === 'manual');
     const aiCount = DIFFS.length - manualRows.length;
     const allAI = manualRows.length === 0;
 
     const visibleRows = DIFFS.filter((r) => !codeFilter || r.onlyManual.includes(codeFilter) || r.onlyAI.includes(codeFilter));
+
+    const question = sampleQuestion?.text ?? FALLBACK_SAMPLE.text;
 
     const footerNote = allAI
         ? `All ${DIFFS.length} responses marked as AI correct. The rules stay as they are.`
@@ -238,7 +261,6 @@ function QualityCheckV3({
         onUpdateRules(Array.from(codes));
     };
 
-    const question = sampleQuestion?.text ?? FALLBACK_SAMPLE.text;
 
     return (
         <div
@@ -262,11 +284,13 @@ function QualityCheckV3({
             <div
                 onMouseDown={(e) => e.stopPropagation()}
                 style={{
-                    // Mesma caixa da V2: 85vw × calc(100vh - 110px).
-                    width: '85vw',
-                    maxWidth: '85vw',
-                    margin: '0.5rem',
-                    height: 'calc(100vh - 110px)',
+                    // Mesma caixa da V2: 85vw × calc(100vh - 110px). No split
+                    // (V3), menos respiro: 95vw × calc(100vh - 48px) — os 48px
+                    // são o padding vertical do overlay (24px em cima e embaixo).
+                    width: split ? '95vw' : '85vw',
+                    maxWidth: split ? '95vw' : '85vw',
+                    margin: split ? 0 : '0.5rem',
+                    height: split ? 'calc(100vh - 48px)' : 'calc(100vh - 110px)',
                     display: 'flex',
                     flexDirection: 'column',
                     backgroundColor: color.surface,
@@ -277,10 +301,18 @@ function QualityCheckV3({
             >
                 {/* Header */}
                 <div style={{ flexShrink: 0, padding: `${space.lg} ${space.xl}`, borderBottom: `1px solid ${color.border}`, backgroundColor: color.surfaceSubtle, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: space.lg }}>
-                    <span style={{ fontSize: font.size.xl, fontWeight: font.weight.semibold, color: color.textDark }}>
-                        Quality check
-                    </span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: space.md }}>
+                    <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: space.xs }}>
+                        <span style={{ fontSize: font.size.xl, fontWeight: font.weight.semibold, color: color.textDark }}>
+                            Quality check
+                        </span>
+                        {/* Split (V3): a instrução da revisão fica no header. */}
+                        {split && (
+                            <p style={{ margin: 0, fontSize: font.size.md, lineHeight: '20px', color: color.textDark }}>
+                                {REVIEW_INSTRUCTION}
+                            </p>
+                        )}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: space.md, flexShrink: 0 }}>
                         {headerExtra}
                         <button
                             type="button"
@@ -300,7 +332,72 @@ function QualityCheckV3({
                     tabela ficam fixos no topo; só o resumo sai de cena. */}
                 <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
                     <div style={{ padding: `${space.lg} ${space.xl} 0` }}>
-                        {/* Summary compacto: uma faixa, sem cards aninhados. */}
+                        {split ? (
+                            /* Split (V3): pergunta à esquerda e resultados à direita,
+                               numa linha. Se não couberem juntos, o bloco de resultados
+                               desce INTEIRO para a 2ª linha (a quebra acontece antes
+                               dele, não no meio). Só se nem a 2ª linha comportar o
+                               bloco é que o 2º par (missed + added) quebra. A pergunta
+                               ganha "…" apenas se nem sozinha couber (texto no hover). */
+                            <section
+                                aria-label="Comparison results"
+                                style={{
+                                    flexShrink: 0,
+                                    display: 'flex',
+                                    flexWrap: 'wrap',
+                                    alignItems: 'center',
+                                    columnGap: space.xl,
+                                    rowGap: space.sm,
+                                    padding: `${space.md} ${space.lg}`,
+                                    border: `1px solid ${color.border}`,
+                                    borderRadius: radius.lg,
+                                    backgroundColor: color.surfaceSubtle,
+                                }}
+                            >
+                                <p
+                                    title={`Question: ${question} · ${TOTAL} responses sampled (10%)`}
+                                    style={{ flex: '1 1 auto', minWidth: 0, margin: 0, fontSize: font.size.md, lineHeight: '20px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                                >
+                                    <span style={{ color: color.textMuted }}>Question: </span>
+                                    <span style={{ fontWeight: font.weight.semibold, color: color.textDark }}>{question}</span>
+                                    <span style={{ color: color.textMuted }}> · {TOTAL} responses sampled (10%)</span>
+                                </p>
+
+                                <div
+                                    style={{
+                                        flex: '0 1 auto',
+                                        minWidth: 0,
+                                        display: 'flex',
+                                        flexWrap: 'wrap',
+                                        alignItems: 'center',
+                                        columnGap: space.xl,
+                                        rowGap: space.sm,
+                                    }}
+                                >
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: space.lg, whiteSpace: 'nowrap' }}>
+                                        <Stat value={`${Math.round((MATCHED / TOTAL) * 100)}%`} label="match rate" compact />
+                                        <Stat value={DIFFS.length} label={`of ${TOTAL} responses with differences`} compact />
+                                    </span>
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: space.lg, whiteSpace: 'nowrap' }}>
+                                        <Stat
+                                            value={MISSED_CODES}
+                                            label="codes missed by AI Coder"
+                                            kind="missed"
+                                            compact
+                                            title={tooltip(DIFF.missed.v4Label, "Codes applied in manual coding that AI Coder didn't apply.")}
+                                        />
+                                        <Stat
+                                            value={ADDED_CODES}
+                                            label="codes added by AI Coder"
+                                            kind="added"
+                                            compact
+                                            title={tooltip(DIFF.added.v4Label, "Codes AI Coder applied that manual coding didn't.")}
+                                        />
+                                    </span>
+                                </div>
+                            </section>
+                        ) : (
+                        /* Summary compacto: uma faixa, sem cards aninhados. */
                         <section
                             aria-label="Comparison results"
                             style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: space.md, padding: `${space.md} ${space.lg}`, border: `1px solid ${color.border}`, borderRadius: radius.lg, backgroundColor: color.surfaceSubtle }}
@@ -331,6 +428,7 @@ function QualityCheckV3({
                                 />
                             </div>
                         </section>
+                        )}
                     </div>
 
                         {/* Revisão */}
@@ -339,20 +437,26 @@ function QualityCheckV3({
                                 toolbar (mesma da V1: visões à esquerda, filtro Code à
                                 direita, só em By response). A rolagem "trava" a
                                 partir do título; a altura do bloco (toolbarH) é o
-                                `top` do cabeçalho da tabela, que gruda logo abaixo. */}
+                                `top` do cabeçalho da tabela, que gruda logo abaixo.
+                                No split (V3) o título/instrução estão no header do
+                                modal, então o bloco fica só com a toolbar. */}
                             <div
                                 ref={toolbarRef}
                                 style={{ position: 'sticky', top: 0, zIndex: 2, padding: `${space.lg} 0 ${space.md}`, backgroundColor: color.surface }}
                             >
-                            <h3 style={{ margin: 0, fontSize: font.size.lg, fontWeight: font.weight.semibold, lineHeight: '24px', color: color.textDark }}>
-                                Review the differences
-                            </h3>
-                            {/* Instrução + ação de cada opção do toggle, num parágrafo só. */}
-                            <p style={{ margin: 0, fontSize: font.size.md, lineHeight: '20px', color: color.textDark }}>
-                                For each response below, choose which coding is correct. Keep Manual (default) to adjust AI Coder's rules to match it, or pick AI if AI Coder got it right.
-                            </p>
+                            {!split && (
+                                <>
+                                    <h3 style={{ margin: 0, fontSize: font.size.lg, fontWeight: font.weight.semibold, lineHeight: '24px', color: color.textDark }}>
+                                        Review the differences
+                                    </h3>
+                                    {/* Instrução + ação de cada opção do toggle, num parágrafo só. */}
+                                    <p style={{ margin: 0, fontSize: font.size.md, lineHeight: '20px', color: color.textDark }}>
+                                        {REVIEW_INSTRUCTION}
+                                    </p>
+                                </>
+                            )}
 
-                            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: space.md, paddingTop: space.lg }}>
+                            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: space.md, paddingTop: split ? 0 : space.lg }}>
                                 <Segmented<View>
                                     label="Results view"
                                     value={view}
@@ -406,9 +510,16 @@ function QualityCheckV3({
                                     }}
                                 >
                                     {/* No stacked a linha traz a resposta e os grupos de codes. */}
-                                    <span role="columnheader" style={{ ...headerCell, ...gridCell(codeColumns) }}>{codeColumns === 'stacked' ? 'Response and codes' : 'Response'}</span>
+                                    <span role="columnheader" style={{ ...headerCell, ...gridCell(codeColumns) }}>
+                                        {codeColumns === 'stacked' ? 'Response and codes' : 'Response'}
+                                    </span>
                                     {codeColumns === 'split' &&
-                                        CODE_GROUPS.map((g) => <span key={g} role="columnheader" style={{ ...headerCell, ...gridCell(codeColumns) }}>{g}</span>)}
+                                        CODE_GROUPS.map((g) => (
+                                            <span key={g} role="columnheader" title={GROUP_HEADER_TOTALS[g]?.title} style={{ ...headerCell, ...gridCell(codeColumns), cursor: GROUP_HEADER_TOTALS[g] ? 'help' : undefined }}>
+                                                {g}
+                                                {GROUP_HEADER_TOTALS[g] && <>&nbsp;· {GROUP_HEADER_TOTALS[g]!.value}</>}
+                                            </span>
+                                        ))}
                                     {codeColumns === 'diff' && <span role="columnheader" style={{ ...headerCell, ...gridCell(codeColumns) }}>Differences</span>}
                                     <span role="columnheader" style={{ ...headerCell, justifyContent: 'flex-end', ...gridCell(codeColumns, true) }}>Correct coding</span>
                                 </div>
@@ -455,14 +566,16 @@ function QualityCheckV3({
 
 // Número do summary. Com `kind`, leva o sinal (−/+) das tags da lista como
 // ícone num quadrado tingido — separado do número para não ler "−22".
-function Stat({ value, label, kind, title }: { value: ReactNode; label: string; kind?: DiffKind; title?: string }) {
+// `compact` (V3): número em 14px e rótulo em textMuted — mesmo tamanho e
+// estilo da linha da pergunta.
+function Stat({ value, label, kind, title, compact = false }: { value: ReactNode; label: string; kind?: DiffKind; title?: string; compact?: boolean }) {
     return (
         <span title={title} style={{ display: 'inline-flex', alignItems: 'baseline', gap: '6px', whiteSpace: 'nowrap', cursor: title ? 'help' : undefined }}>
             {kind && <DiffIcon kind={kind} />}
-            <span style={{ fontSize: font.size.xl, fontWeight: font.weight.semibold, color: color.textDark, lineHeight: '24px', fontVariantNumeric: 'tabular-nums' }}>
+            <span style={{ fontSize: compact ? font.size.md : font.size.xl, fontWeight: font.weight.semibold, color: color.textDark, lineHeight: compact ? '20px' : '24px', fontVariantNumeric: 'tabular-nums' }}>
                 {value}
             </span>
-            <span style={{ fontSize: font.size.md, color: color.textSecondary }}>{label}</span>
+            <span style={{ fontSize: font.size.md, color: compact ? color.textMuted : color.textSecondary }}>{label}</span>
         </span>
     );
 }
@@ -616,8 +729,9 @@ function ReviewRow({
     onDecide: (d: QcDecision) => void;
 }) {
     const diff = codeColumns === 'diff';
-    // Stacked (V4): resposta sempre completa, sem clamp nem "Show more".
-    const fullText = codeColumns === 'stacked';
+    // Split (V3) e stacked (V4): resposta sempre completa, sem clamp nem
+    // "Show more". Só o diff (V2) mantém o clamp de 2 linhas.
+    const fullText = codeColumns === 'split' || codeColumns === 'stacked';
     const textRef = useRef<HTMLParagraphElement>(null);
     const [expanded, setExpanded] = useState(false);
     const [overflows, setOverflows] = useState(false);
@@ -666,7 +780,7 @@ function ReviewRow({
                 borderBottom: isLast ? undefined : `1px solid ${color.border}`,
             }}
         >
-            {/* Resposta: 2 linhas + "Show more" (no stacked, sempre completa). */}
+            {/* Resposta: 2 linhas + "Show more" (no split/stacked, sempre completa). */}
             <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: space.xs, alignItems: 'flex-start', ...gridCell(codeColumns) }}>
                 <p
                     ref={textRef}
@@ -748,7 +862,7 @@ const codeChipStyle: CSSProperties = {
     border: `1px solid ${color.borderInput}`,
     borderLeft: 'none',
     borderRadius: `0 ${radius.sm} ${radius.sm} 0`,
-    fontSize: font.size.md,
+    fontSize: font.size.sm,
     fontWeight: font.weight.medium,
     lineHeight: '20px',
     color: color.textDark,

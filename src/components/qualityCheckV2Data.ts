@@ -1,7 +1,8 @@
 // -----------------------------------------------------------------------------
-// qualityCheckV2Data — dados mockados do Quality Check V2 (QualityCheckV2).
+// qualityCheckV2Data — dados mockados do Quality Check (V1–V4 do
+// QualityCheckPrototype: QualityCheckV2 e QualityCheckV3 leem daqui).
 //
-// Próprios da V2 de propósito: não reusa os mocks da V1 (QualityCheckPanel).
+// Próprios de propósito: não reusa os mocks do painel antigo (QualityCheckPanel).
 //
 // Modelo: o codebook treinado usa os MESMOS codes do codebook de origem (só as
 // regras são geradas). O QC roda o AI coder numa pergunta já codificada
@@ -9,19 +10,21 @@
 // comparação determinística 1:1, sem LLM-as-judge.
 //
 // Codes: os labels abaixo são IDÊNTICOS aos do CODEBOOK_ROWS do
-// AccountCodebookRulesModal (codebook de compras/delivery). É o match por label
-// que aplica a tag "Refined" nos codes do codebook após "Update code rules" —
-// ao editar, mantenha os nomes em sincronia com aquele arquivo.
+// AccountCodebookRulesModal (codebook de feedback de academia: limpeza,
+// manutenção, experiência, staff e climatização). É o match por label que
+// aplica a tag "Refined" nos codes do codebook após "Update code rules" — ao
+// editar, mantenha os nomes em sincronia com aquele arquivo.
 //
 // Amostra: 100 respostas, 20 com diferença (match rate de 80%). As 20 são, na
 // maioria, respostas longas e informais, com 1–4 codes de diferença cada,
 // misturando "AI missed", "AI added" e os dois, com erros típicos de AI
-// (Amazon vs. Amazon Fresh/Prime, Uber vs. Uber Eats, typos de marca, menções
-// negativas/passadas codificadas, sentimento). Também cobrem os casos de
-// estresse do layout: uma resposta com 10 codes, nomes de code longos, uma
-// resposta em que a AI não aplicou nenhum code e duas curtas. As outras 80 são
-// geradas de forma determinística (manual = AI) só para alimentar as contagens
-// (ex.: coluna "Manual coding (sample)" da visão By code).
+// (Excessive heat vs. Inadequate cooling, Broken vs. Poor condition, menções
+// passadas/positivas codificadas como problema, metáforas lidas ao pé da letra,
+// sentimento). Também cobrem os casos de estresse do layout: uma resposta com
+// 10 codes, nomes de code longos, uma resposta em que a AI não aplicou nenhum
+// code e duas curtas. As outras 80 são geradas de forma determinística
+// (manual = AI) só para alimentar as contagens (ex.: coluna "Manual coding
+// (sample)" da visão By code).
 // -----------------------------------------------------------------------------
 
 export interface QcResponse {
@@ -49,165 +52,159 @@ export const FALLBACK_SAMPLE = {
 // Codes do codebook (mesmos labels do AccountCodebookRulesModal) --------------
 
 const C = {
-    amazon: 'Amazon',
-    amazonFresh: 'Amazon Fresh',
-    prime: 'Amazon Prime',
-    walmartPlus: 'Walmart+',
-    walmart: 'Walmart',
-    target: 'Target',
-    kroger: 'Kroger',
-    aldi: 'Aldi',
-    publix: 'Publix',
-    wegmans: 'Wegmans',
-    safeway: 'Safeway',
-    costco: 'Costco',
-    sams: "Sam's Club",
-    bjs: "BJ's",
-    wholeFoods: 'Whole Foods',
-    traderJoes: "Trader Joe's",
-    sprouts: 'Sprouts',
-    hmart: 'H-Mart',
-    instacart: 'Instacart',
-    peapod: 'Peapod',
-    freshDirect: 'FreshDirect',
-    shipt: 'Shipt',
-    uberEats: 'Uber Eats',
-    doordash: 'DoorDash',
-    grubhub: 'GrubHub',
-    uber: 'Uber',
-    gopuff: 'GoPuff',
-    shoprite: 'Shoprite',
-    stopShop: 'Stop & Shop',
-    giant: 'Giant',
-    gristedes: 'Gristedes',
-    dollarTree: 'Dollar Tree',
-    dollarGeneral: 'Dollar General',
-    riteAid: 'Rite Aid',
-    lidl: 'Lidl',
-    positiveExcellent: 'Positive sentiment - excellent or very good',
-    positiveGood: 'Positive sentiment - good or like',
-    okay: 'Okay or acceptable',
-    noPref: 'No preference',
-    cantRecall: 'Cannot recall or specify',
-    nonResponse: 'Non-response or unclear',
+    // Facility Cleanliness
+    uncleanliness: 'General facility uncleanliness',
+    lockerRooms: 'Locker rooms dirty',
+    restrooms: 'Restrooms unhygienic',
+    showers: 'Shower areas unsanitary',
+    grimy: 'Equipment surfaces grimy',
+    otherCleanliness: 'Other Facility Cleanliness',
+    // Facility Infrastructure & Maintenance
+    poorCondition: 'Equipment in poor condition',
+    broken: 'Broken or malfunctioning equipment',
+    structural: 'Structural damage and decay',
+    hvac: 'HVAC and temperature problems',
+    water: 'Water system issues',
+    otherMaintenance: 'Other Facility Infrastructure & Maintenance',
+    // Member Experience & Satisfaction
+    positive: 'Positive overall experience',
+    negative: 'Negative overall experience',
+    returning: 'Returning member experience',
+    firstImpressions: 'Facility first impressions',
+    otherExperience: 'Other Member Experience & Satisfaction',
+    // Staff Performance & Conduct
+    absenteeism: 'Staff absenteeism',
+    unhelpful: 'Unhelpful staff behavior',
+    inattentive: 'Staff inattentiveness',
+    unprofessional: 'Staff unprofessionalism',
+    rude: 'Rude or dismissive staff',
+    otherStaff: 'Other Staff Performance & Conduct',
+    // Climate Control
+    heat: 'Excessive heat',
+    cold: 'Cold temperatures',
+    airCirculation: 'Poor air circulation',
+    cooling: 'Inadequate cooling',
+    humidity: 'Excessive humidity',
+    otherClimate: 'Other Climate Control',
 } as const;
 
 // Respostas com diferença (casos de estresse) ----------------------------------
 
 const DIFF_RESPONSES: Record<number, Omit<QcResponse, 'id'>> = {
-    // Menção passada/negativa (Stop & Shop) codificada pela AI.
+    // Menção passada (locker rooms já reformados) codificada pela AI.
     3: {
-        text: 'Mostly Aldi and Lidl, they’re both like ten minutes from my house and way cheaper than the big chains. I used to go to Stop & Shop every week but the prices got ridiculous. Every couple of months I’ll do a Costco run with my sister because she has the membership.',
-        manualCodes: [C.aldi, C.lidl, C.costco],
-        aiCodes: [C.aldi, C.stopShop, C.costco, C.positiveGood],
+        text: 'The locker rooms used to be disgusting but they renovated them last year and now they’re fine. My real problem is the equipment — half the cable machines have frayed cables and the treadmill by the window has been out of order for a month.',
+        manualCodes: [C.poorCondition, C.broken],
+        aiCodes: [C.lockerRooms, C.poorCondition, C.broken, C.negative],
     },
+    // Heat vs. cooling: a AI não separa o calor do AC que não dá conta.
     7: {
-        text: 'Amazon Fresh for the heavy stuff like water and cat litter, it gets delivered same day with my Prime membership. For everything else I just walk to Trader Joe’s.',
-        manualCodes: [C.amazonFresh, C.prime, C.traderJoes],
-        aiCodes: [C.amazon, C.prime, C.traderJoes],
+        text: 'It’s like a sauna in the cardio room every afternoon. The AC is clearly not keeping up.',
+        manualCodes: [C.heat, C.cooling, C.hvac],
+        aiCodes: [C.heat, C.hvac],
     },
     11: {
-        text: 'Walmart. It’s close, it’s cheap and it has everything in one place so I don’t have to make three stops with two kids in the car.',
-        manualCodes: [C.walmart],
-        aiCodes: [C.walmart, C.walmartPlus, C.positiveGood],
+        text: 'The showers are never cleaned. There’s mold in the corners and hair in the drains every single time I go.',
+        manualCodes: [C.showers],
+        aiCodes: [C.showers, C.water, C.uncleanliness],
     },
-    // A AI não aplicou nenhum code (typos de marca).
+    // A AI não aplicou nenhum code (typos e abreviações).
     14: {
-        text: 'wallmart and aldis mostly lol',
-        manualCodes: [C.walmart, C.aldi],
+        text: 'lockr room smells like a sewer n the bathrooms r nasty',
+        manualCodes: [C.lockerRooms, C.restrooms],
         aiCodes: [],
     },
     19: {
-        text: 'Honestly I barely go inside a store anymore. Instacard does most of my weekly order from Wegmans, and if I forget something I’ll get it through GoPuff at like 11pm. Doordash for dinner when I’m too tired to cook.',
-        manualCodes: [C.instacart, C.wegmans, C.gopuff, C.doordash],
-        aiCodes: [C.wegmans],
+        text: 'Honestly the staff are the worst part. The guy at the front desk barely looks up from his phone, I asked a trainer where the foam rollers were and he just shrugged and walked off, and half the time there’s nobody at the desk at all when I come in at 6am.',
+        manualCodes: [C.inattentive, C.unhelpful, C.absenteeism, C.rude],
+        aiCodes: [C.inattentive],
     },
     // Texto longo + 10 codes.
     23: {
         text:
-            'Where do I even start. Weekly groceries are split between Kroger and Aldi depending on what’s on sale, and I go to Whole Foods for meat and fish because the quality is just better. Trader Joe’s for snacks and frozen stuff, obviously. Once a month we do a big bulk run at Costco, and my husband insists on Sam’s Club for his protein bars even though I keep telling him it’s the same thing. When nobody has time to go out I order from Instacart, and Amazon Fresh has been a lifesaver for the heavy stuff like water and paper towels. For last-minute things there’s a Dollar General right by my kid’s school. Overall I’m really happy with the options we have around here, it’s honestly great.',
+            'Where do I even start. I was a member here for about three years, left for a while, and came back in January hoping things had improved. The first thing I noticed walking in was the smell — the whole place just feels dirty. The locker rooms are gross, the restrooms are worse, and the showers have had mold for months. The machines are sticky with sweat because nobody wipes them down and there are never any wipes. Two of the squat racks have been broken since I rejoined. The ceiling tiles over the stretching area are stained and sagging, which honestly makes me nervous. It’s also boiling in there in the summer and the air just doesn’t move. Overall it’s been a really disappointing return.',
         manualCodes: [
-            C.kroger, C.aldi, C.wholeFoods, C.traderJoes, C.costco,
-            C.sams, C.instacart, C.amazonFresh, C.dollarGeneral, C.positiveExcellent,
+            C.uncleanliness, C.lockerRooms, C.restrooms, C.showers, C.grimy,
+            C.broken, C.structural, C.heat, C.returning, C.negative,
         ],
         aiCodes: [
-            C.kroger, C.aldi, C.wholeFoods, C.traderJoes, C.costco,
-            C.sams, C.amazonFresh, C.dollarGeneral, C.amazon, C.positiveGood,
+            C.uncleanliness, C.lockerRooms, C.restrooms, C.showers, C.grimy,
+            C.broken, C.structural, C.heat, C.airCirculation, C.negative,
         ],
     },
-    // Serviço que o respondente cancelou, codificado pela AI.
     27: {
-        text: 'Target for household stuff and whatever groceries I remember while I’m there. I tried Shipt for a while but the substitutions drove me crazy so I canceled it.',
-        manualCodes: [C.target],
-        aiCodes: [C.target, C.shipt],
+        text: 'Staff are friendly and the classes are great. My only complaint is that the pool is always freezing, even in the summer.',
+        manualCodes: [C.positive, C.cold],
+        aiCodes: [C.positive, C.cold, C.hvac],
     },
     // Nomes de code longos.
     31: {
-        text: 'I don’t really remember, whatever is closest when I need something. It’s fine I guess, nothing special about any of them.',
-        manualCodes: [C.cantRecall, C.noPref, C.okay],
-        aiCodes: [C.nonResponse, C.okay],
+        text: 'There’s a bunch of little things. The lockers don’t lock properly, the parking lot lights have been out for weeks, and the manager told me that wasn’t his problem when I mentioned it.',
+        manualCodes: [C.otherMaintenance, C.otherStaff, C.rude],
+        aiCodes: [C.otherMaintenance, C.unhelpful],
     },
     36: {
-        text: 'Publix. The subs are the best and the staff are always super nice, I wouldn’t shop anywhere else.',
-        manualCodes: [C.publix, C.positiveExcellent],
-        aiCodes: [C.publix, C.positiveExcellent, C.positiveGood],
+        text: 'Honestly one of the cleanest gyms I’ve been to. Staff wipe everything down constantly and the place looks brand new when you walk in.',
+        manualCodes: [C.positive, C.firstImpressions],
+        aiCodes: [C.positive],
     },
     40: {
-        text: 'mostly shoprite bc its the closest, sometimes stop n shop if theres a sale. my mom still orders from peapod every week which i think is funny. we used to get uber eats a lot but its way too expensive now',
-        manualCodes: [C.shoprite, C.stopShop, C.peapod],
-        aiCodes: [C.shoprite, C.peapod, C.uberEats, C.uber],
+        text: 'the water fountains have been broken for like two months so i have to buy water at the desk lol. also the hot water in the showers cuts out halfway thru. staff dont seem to care',
+        manualCodes: [C.water, C.inattentive],
+        aiCodes: [C.water, C.broken, C.showers, C.inattentive],
     },
     46: {
-        text: 'We have a Giant right down the street and I use their Giant peapod delivery when the weather is bad. Sometimes Safeway if I’m near my office.',
-        manualCodes: [C.giant, C.peapod, C.safeway],
-        aiCodes: [C.giant, C.safeway],
+        text: 'It’s way too humid in the weight room, the mirrors fog up and the floor gets slippery. There’s clearly no ventilation back there.',
+        manualCodes: [C.humidity, C.airCirculation],
+        aiCodes: [C.humidity],
     },
-    // Texto longo.
+    // Texto longo + metáfora ("cracks started to show") lida ao pé da letra.
     52: {
         text:
-            'I’m very particular about organic produce so it’s mostly Sprouts and Whole Foods for me. The prices at Whole Foods got a bit better after the Amazon thing, and I get free delivery through my Prime account, which is great when I’m busy with work. I’d say the quality at both is excellent, and the staff at Sprouts know me by name at this point.',
-        manualCodes: [C.sprouts, C.wholeFoods, C.prime, C.positiveExcellent],
-        aiCodes: [C.sprouts, C.wholeFoods, C.prime, C.positiveExcellent, C.amazon, C.amazonFresh],
+            'I’ve tried a lot of gyms in the area and this one made a great first impression — bright, modern, the equipment looked new. After a couple of months though the cracks started to show. The cardio machines constantly have “out of order” signs and the rowing machines are falling apart. I still like the atmosphere, but the maintenance really needs to catch up.',
+        manualCodes: [C.firstImpressions, C.broken, C.poorCondition],
+        aiCodes: [C.firstImpressions, C.broken, C.poorCondition, C.positive, C.structural],
     },
     57: {
-        text: 'H-Mart for all the Korean groceries I can’t find anywhere else, and Cosco for rice and meat in bulk. My parents still go to a small store in Flushing but I don’t know the name. BJ’s sometimes because it’s closer, but the selection is worse.',
-        manualCodes: [C.hmart, C.costco, C.bjs, C.cantRecall],
-        aiCodes: [C.hmart],
+        text: 'The heating in the yoga studio is broken, so the morning classes are freezing in winter. I told the front desk three times and nothing happened, and the instructor has cancelled class twice without notice.',
+        manualCodes: [C.hvac, C.cold, C.unhelpful, C.absenteeism],
+        aiCodes: [C.cold],
     },
     61: {
-        text: 'Dollar Tree and Dollar General for most things, and Walmart+ delivery when I need bigger stuff. Money is tight so I go wherever is cheapest.',
-        manualCodes: [C.dollarTree, C.dollarGeneral, C.walmartPlus],
-        aiCodes: [C.dollarTree, C.dollarGeneral, C.walmart, C.noPref],
+        text: 'Rude staff, dirty bathrooms, broken machines. Not worth the money.',
+        manualCodes: [C.rude, C.restrooms, C.broken, C.negative],
+        aiCodes: [C.rude, C.restrooms, C.poorCondition, C.negative],
     },
     68: {
-        text: 'FreshDirect! I live in a fourth floor walk-up in Manhattan, there is no way I’m carrying groceries up those stairs. Gristedes on the corner for emergencies.',
-        manualCodes: [C.freshDirect, C.gristedes],
-        aiCodes: [C.freshDirect],
+        text: 'The roof leaks every time it rains and they just put a bucket under it. There’s also a weird damp smell by the pool.',
+        manualCodes: [C.structural, C.otherCleanliness],
+        aiCodes: [C.structural],
     },
     73: {
-        text: 'Costco. Everything else is too expensive for a family of six.',
-        manualCodes: [C.costco],
-        aiCodes: [C.costco, C.bjs],
+        text: 'Staff never there.',
+        manualCodes: [C.absenteeism],
+        aiCodes: [C.absenteeism, C.inattentive],
     },
+    // Melhorias (menções positivas) codificadas como problemas.
     79: {
-        text: 'I order almost everything on Amazon now, even groceries. It’s just easier than going out with a newborn.',
-        manualCodes: [C.amazon],
-        aiCodes: [C.amazon, C.amazonFresh, C.prime],
+        text: 'I came back after two years away and it’s so much better now. New equipment, cleaner locker rooms, friendlier staff.',
+        manualCodes: [C.returning, C.positive],
+        aiCodes: [C.returning, C.positive, C.lockerRooms, C.poorCondition],
     },
     85: {
-        text: 'idk',
-        manualCodes: [C.nonResponse],
-        aiCodes: [C.cantRecall],
+        text: 'too hot',
+        manualCodes: [C.heat],
+        aiCodes: [C.hvac],
     },
     90: {
-        text: 'We split it: Kroger for the weekly stuff, Target for household items, and Rite Aid for prescriptions and snacks since it’s on the way home. Every now and then GrubHub when nobody wants to cook.',
-        manualCodes: [C.kroger, C.target, C.riteAid, C.grubhub],
-        aiCodes: [C.kroger, C.target],
+        text: 'The trainers are great but the front desk team is really unprofessional — loud personal calls, eating at the desk, and gossiping about members where everyone can hear.',
+        manualCodes: [C.unprofessional],
+        aiCodes: [C.unprofessional, C.positive, C.rude],
     },
     96: {
-        text: 'Lidl opened near us last year and it’s honestly great, I switched from Safeway almost completely. I still take an Uber to get there since I don’t drive, and sometimes I’ll just order Uber Eats from the deli next door.',
-        manualCodes: [C.lidl, C.positiveExcellent, C.uberEats],
-        aiCodes: [C.lidl, C.positiveGood, C.safeway, C.uber, C.uberEats],
+        text: 'The AC has been broken all summer. It’s stuffy, it smells, and I’ve seen people nearly pass out in spin class. I’m cancelling my membership.',
+        manualCodes: [C.hvac, C.cooling, C.airCirculation, C.negative],
+        aiCodes: [C.hvac, C.heat, C.airCirculation, C.uncleanliness],
     },
 };
 
@@ -215,24 +212,24 @@ const DIFF_RESPONSES: Record<number, Omit<QcResponse, 'id'>> = {
 
 // Pool e frases usadas para montar as respostas concordantes.
 const MATCHED_POOL: { code: string; phrase: string }[] = [
-    { code: C.walmart, phrase: 'Walmart because it is close' },
-    { code: C.target, phrase: 'Target for household stuff' },
-    { code: C.kroger, phrase: 'Kroger for the weekly groceries' },
-    { code: C.aldi, phrase: 'Aldi because it is cheap' },
-    { code: C.publix, phrase: 'Publix' },
-    { code: C.wegmans, phrase: 'Wegmans' },
-    { code: C.safeway, phrase: 'Safeway near my office' },
-    { code: C.costco, phrase: 'Costco for bulk' },
-    { code: C.sams, phrase: 'Sam’s Club once a month' },
-    { code: C.wholeFoods, phrase: 'Whole Foods for produce' },
-    { code: C.traderJoes, phrase: 'Trader Joe’s for snacks' },
-    { code: C.instacart, phrase: 'Instacart when I am busy' },
-    { code: C.amazonFresh, phrase: 'Amazon Fresh deliveries' },
-    { code: C.shoprite, phrase: 'ShopRite' },
-    { code: C.dollarGeneral, phrase: 'Dollar General for quick stuff' },
-    { code: C.doordash, phrase: 'DoorDash for takeout' },
-    { code: C.lidl, phrase: 'Lidl' },
-    { code: C.sprouts, phrase: 'Sprouts for organic stuff' },
+    { code: C.lockerRooms, phrase: 'the locker rooms are dirty' },
+    { code: C.restrooms, phrase: 'the restrooms are unhygienic' },
+    { code: C.showers, phrase: 'the showers are gross' },
+    { code: C.grimy, phrase: 'the machines are sticky and grimy' },
+    { code: C.broken, phrase: 'half the treadmills are broken' },
+    { code: C.poorCondition, phrase: 'the equipment is old and worn out' },
+    { code: C.structural, phrase: 'there are leaks in the ceiling' },
+    { code: C.water, phrase: 'the water fountains never work' },
+    { code: C.heat, phrase: 'it is way too hot inside' },
+    { code: C.cold, phrase: 'the pool area is freezing' },
+    { code: C.airCirculation, phrase: 'the air feels stale' },
+    { code: C.humidity, phrase: 'it is really humid in the weights area' },
+    { code: C.rude, phrase: 'the front desk staff are rude' },
+    { code: C.absenteeism, phrase: 'nobody is ever at the front desk' },
+    { code: C.inattentive, phrase: 'trainers are on their phones instead of watching the floor' },
+    { code: C.unhelpful, phrase: 'staff won’t help with simple questions' },
+    { code: C.positive, phrase: 'overall I love this gym' },
+    { code: C.negative, phrase: 'honestly it is a disappointing experience' },
 ];
 
 // PRNG determinístico (Park–Miller) para a amostra ser sempre a mesma.
@@ -255,7 +252,7 @@ function buildSample(): QcResponse[] {
             continue;
         }
         if (n % 23 === 0) {
-            out.push({ id, text: 'Not sure, nothing in particular.', manualCodes: [C.cantRecall], aiCodes: [C.cantRecall] });
+            out.push({ id, text: 'It’s a gym, it does the job.', manualCodes: [C.otherExperience], aiCodes: [C.otherExperience] });
             continue;
         }
         const count = 1 + Math.floor(random() * 3);

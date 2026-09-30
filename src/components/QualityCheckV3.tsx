@@ -141,6 +141,24 @@ const linkButton: CSSProperties = {
 
 const visuallyHidden: CSSProperties = { position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' };
 
+// Tabelas com cabeçalho sticky (By response e By code). A borda de cima e os
+// cantos arredondados do topo são do CABEÇALHO, não do contorno: assim, quando
+// o cabeçalho gruda sob a toolbar, a borda superior vai junto (se fosse do
+// contorno, ela subiria com a rolagem e o cabeçalho ficaria "aberto").
+//   - tableFrame: contorno sem borda superior (laterais + base arredondada).
+//   - stickyHeaderShell: casca sticky com fundo branco, 1px além de cada lado
+//     para cobrir as laterais do contorno; o fundo branco esconde as linhas
+//     que passam atrás dos cantos arredondados do cabeçalho.
+//   - headerFrame: borda completa + raio no topo do próprio cabeçalho.
+const tableFrame: CSSProperties = {
+    border: `1px solid ${color.border}`,
+    borderTop: 'none',
+    borderRadius: `0 0 ${radius.lg} ${radius.lg}`,
+    backgroundColor: color.surface,
+};
+const stickyHeaderShell = (top: number): CSSProperties => ({ position: 'sticky', top, zIndex: 1, margin: '0 -1px', backgroundColor: color.surface });
+const headerFrame: CSSProperties = { border: `1px solid ${color.border}`, borderRadius: `${radius.lg} ${radius.lg} 0 0`, backgroundColor: color.surfaceSubtle };
+
 // Colunas da lista (mesmas no cabeçalho e nas linhas para tudo alinhar):
 //   diff  → resposta · diferenças · decisão
 //   split → resposta · matched · only manual · only AI · decisão
@@ -240,7 +258,11 @@ function QualityCheckV3({
     const aiCount = DIFFS.length - manualRows.length;
     const allAI = manualRows.length === 0;
 
-    const visibleRows = DIFFS.filter((r) => !codeFilter || r.onlyManual.includes(codeFilter) || r.onlyAI.includes(codeFilter));
+    const filteredRows = DIFFS.filter((r) => !codeFilter || r.onlyManual.includes(codeFilter) || r.onlyAI.includes(codeFilter));
+    // Split (V3): ordem padrão da mais para a menos divergente (total de codes
+    // só no manual + só na AI); empates mantêm a ordem da amostra (sort estável).
+    const diffCount = (r: QcDerivedResponse) => r.onlyManual.length + r.onlyAI.length;
+    const visibleRows = split ? [...filteredRows].sort((a, b) => diffCount(b) - diffCount(a)) : filteredRows;
 
     const question = sampleQuestion?.text ?? FALLBACK_SAMPLE.text;
 
@@ -485,7 +507,9 @@ function QualityCheckV3({
                                     ]}
                                 />
                                 {view === 'response' && (
-                                    <div style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: space.sm, fontSize: font.size.md, color: color.textSubtle }}>
+                                    // Split (V3): filtro colado às abas (16px = gap 12 + 4), como
+                                    // parte do grupo da visão; nas outras versões, à direita.
+                                    <div style={{ marginLeft: split ? space.xs : 'auto', display: 'inline-flex', alignItems: 'center', gap: space.sm, fontSize: font.size.md, color: color.textSubtle }}>
                                         <span aria-hidden="true">Code</span>
                                         <div style={{ width: '240px' }}>
                                             <SelectField
@@ -505,26 +529,23 @@ function QualityCheckV3({
                             {/* Tabelas sem overflow próprio (senão o sticky do
                                 cabeçalho não funciona); o raio fica no cabeçalho. */}
                             {view === 'code' ? (
-                                <div style={{ border: `1px solid ${color.border}`, borderRadius: radius.lg, backgroundColor: color.surface }}>
-                                    <CodeTable stats={CODE_STATS} stickyTop={toolbarH} />
+                                <div style={tableFrame}>
+                                    <CodeTable stats={CODE_STATS} stickyTop={toolbarH} hoverable={split} striped={split} />
                                 </div>
                             ) : (
-                            <div style={{ border: `1px solid ${color.border}`, borderRadius: radius.lg, backgroundColor: color.surface }}>
-                                {/* Cabeçalho das colunas — sticky logo abaixo da toolbar. */}
+                            <div style={tableFrame}>
+                                {/* Cabeçalho das colunas — sticky logo abaixo da toolbar,
+                                    com a própria borda superior (ver tableFrame). */}
+                                <div style={stickyHeaderShell(toolbarH)}>
                                 <div
                                     role="row"
                                     style={{
                                         ...listColumns(codeColumns),
+                                        ...headerFrame,
                                         // Altura de 35px, igual ao header da tabela de estudos.
-                                        position: 'sticky',
-                                        top: toolbarH,
-                                        zIndex: 1,
                                         alignItems: hasGridLines(codeColumns) ? 'stretch' : 'center',
                                         minHeight: '35px',
                                         padding: hasGridLines(codeColumns) ? 0 : `0 ${space.lg}`,
-                                        borderBottom: `1px solid ${color.border}`,
-                                        borderRadius: `${radius.lg} ${radius.lg} 0 0`,
-                                        backgroundColor: color.surfaceSubtle,
                                     }}
                                 >
                                     {/* No stacked a linha traz a resposta e os grupos de codes. */}
@@ -535,6 +556,7 @@ function QualityCheckV3({
                                         CODE_GROUPS.map((g) => <span key={g} role="columnheader" style={{ ...headerCell, ...gridCell(codeColumns) }}>{g}</span>)}
                                     {codeColumns === 'diff' && <span role="columnheader" style={{ ...headerCell, ...gridCell(codeColumns) }}>Differences</span>}
                                     <span role="columnheader" style={{ ...headerCell, justifyContent: 'flex-end', ...gridCell(codeColumns, true) }}>Correct coding</span>
+                                </div>
                                 </div>
 
                             <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
@@ -696,7 +718,10 @@ function Segmented<T extends string>({
 // horizontal e sort por coluna.
 type CodeSortKey = 'code' | 'onlyManual' | 'onlyAI' | 'total';
 
-function CodeTable({ stats, stickyTop }: { stats: CodeStat[]; stickyTop: number }) {
+// `hoverable` (V3): linha destacada em surfaceHover ao passar o mouse.
+// `striped` (V3): zebra — linhas ímpares em surfaceMuted, como a By response.
+function CodeTable({ stats, stickyTop, hoverable = false, striped = false }: { stats: CodeStat[]; stickyTop: number; hoverable?: boolean; striped?: boolean }) {
+    const [hoveredCode, setHoveredCode] = useState<string | null>(null);
     // Sem sort ativo, mantém a ordem padrão (total de diferenças desc).
     const [sort, setSort] = useState<{ key: CodeSortKey; dir: SortDir } | null>(null);
     const toggleSort = (key: CodeSortKey) => {
@@ -733,19 +758,30 @@ function CodeTable({ stats, stickyTop }: { stats: CodeStat[]; stickyTop: number 
 
     return (
         <div role="table" aria-label="Differences by code">
-            {/* Header sticky logo abaixo da toolbar (stickyTop); raio no topo
-                porque o contêiner da tabela não corta o conteúdo. */}
-            <div role="row" style={{ ...row, position: 'sticky', top: stickyTop, zIndex: 1, backgroundColor: color.surfaceSubtle, borderBottom: gridLine, borderRadius: `${radius.lg} ${radius.lg} 0 0` }}>
-                {header('Code', 'code', 'left')}
-                {header('Differences', 'total')}
-                {header('Only in manual coding', 'onlyManual')}
-                {header('Only in AI coding', 'onlyAI', 'right', true)}
+            {/* Header sticky logo abaixo da toolbar (stickyTop), com a própria
+                borda superior e raio no topo (ver tableFrame). */}
+            <div style={stickyHeaderShell(stickyTop)}>
+                <div role="row" style={{ ...row, ...headerFrame }}>
+                    {header('Code', 'code', 'left')}
+                    {header('Differences', 'total')}
+                    {header('Only in manual coding', 'onlyManual')}
+                    {header('Only in AI coding', 'onlyAI', 'right', true)}
+                </div>
             </div>
             {sortedStats.map((s, i) => (
                 <div
                     key={s.code}
                     role="row"
-                    style={{ ...row, backgroundColor: color.surface, borderBottom: i === sortedStats.length - 1 ? undefined : gridLine }}
+                    onMouseEnter={hoverable ? () => setHoveredCode(s.code) : undefined}
+                    onMouseLeave={hoverable ? () => setHoveredCode((c) => (c === s.code ? null : c)) : undefined}
+                    style={{
+                        ...row,
+                        backgroundColor: hoverable && hoveredCode === s.code ? color.surfaceHover : striped && i % 2 === 1 ? color.surfaceMuted : color.surface,
+                        borderBottom: i === sortedStats.length - 1 ? undefined : gridLine,
+                        // Última linha acompanha o raio do contorno (o fundo do hover
+                        // não vaza nos cantos).
+                        borderRadius: i === sortedStats.length - 1 ? `0 0 ${radius.lg} ${radius.lg}` : undefined,
+                    }}
                 >
                     <span role="cell" style={td('left')}><span title={s.code} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.code}</span></span>
                     <span role="cell" style={td('right')}>{s.total}</span>
@@ -779,8 +815,15 @@ function ReviewRow({
     // Split (V3) e stacked (V4): resposta sempre completa, sem clamp nem
     // "Show more". Só o diff (V2) mantém o clamp de 2 linhas.
     const fullText = codeColumns === 'split' || codeColumns === 'stacked';
+    // Células do corpo: padding da tabela (gridCell); no split (V3), 12px no topo.
+    const bodyCell = (last = false): CSSProperties => ({
+        ...gridCell(codeColumns, last),
+        ...(codeColumns === 'split' ? { paddingTop: '12px' } : null),
+    });
     const textRef = useRef<HTMLParagraphElement>(null);
     const [expanded, setExpanded] = useState(false);
+    const [isHovered, setIsHovered] = useState(false);
+    const hovered = codeColumns === 'split' && isHovered;
     const [overflows, setOverflows] = useState(false);
 
     // "Show more" só quando o texto passa de 2 linhas ou, no modo diff, há
@@ -818,6 +861,8 @@ function ReviewRow({
 
     return (
         <li
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
             style={{
                 ...listColumns(codeColumns),
                 // diff/split: células esticam na altura toda (divisória de ponta
@@ -825,14 +870,16 @@ function ReviewRow({
                 alignItems: hasGridLines(codeColumns) ? 'stretch' : 'start',
                 padding: hasGridLines(codeColumns) ? 0 : space.lg,
                 borderBottom: isLast ? undefined : `1px solid ${color.border}`,
-                backgroundColor: striped ? color.surfaceMuted : undefined,
+                // Split (V3): hover em surfaceHover (mesmo da tabela do Coder),
+                // um tom acima da zebra; a linha em si não é clicável.
+                backgroundColor: hovered ? color.surfaceHover : striped ? color.surfaceMuted : undefined,
                 // A lista não corta o overflow (sticky): a última linha acompanha
                 // o raio do container para o fundo zebrado não vazar nos cantos.
                 borderRadius: isLast ? `0 0 ${radius.lg} ${radius.lg}` : undefined,
             }}
         >
             {/* Resposta: 2 linhas + "Show more" (no split/stacked, sempre completa). */}
-            <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: space.xs, alignItems: 'flex-start', ...gridCell(codeColumns) }}>
+            <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: space.xs, alignItems: 'flex-start', ...bodyCell() }}>
                 <p
                     ref={textRef}
                     style={{
@@ -881,7 +928,7 @@ function ReviewRow({
                 )}
             </div>
 
-            {codeColumns === 'split' && CODE_GROUPS.map((g) => <ChipCell key={g} style={gridCell(codeColumns)}>{groupContents[g]}</ChipCell>)}
+            {codeColumns === 'split' && CODE_GROUPS.map((g) => <ChipCell key={g} style={bodyCell()}>{groupContents[g]}</ChipCell>)}
 
             {diff && (
                 // Diferenças como diff: − missed / + added.
@@ -892,7 +939,7 @@ function ReviewRow({
                 </ChipCell>
             )}
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-start', ...gridCell(codeColumns, true) }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-start', ...bodyCell(true) }}>
                 <DecisionToggle label={`Correct coding for ${item.id}`} value={decision} onChange={onDecide} />
             </div>
         </li>

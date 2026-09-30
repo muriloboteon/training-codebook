@@ -298,7 +298,7 @@ function CoderCodebooksTable({
                             }}
                             onMouseEnter={(e) => {
                                 setHoveredRowId(cb.id);
-                                (e.currentTarget as HTMLTableRowElement).style.backgroundColor = color.surfaceHover;
+                                (e.currentTarget as HTMLTableRowElement).style.backgroundColor = color.controlHover;
                             }}
                             onMouseLeave={(e) => {
                                 setHoveredRowId(null);

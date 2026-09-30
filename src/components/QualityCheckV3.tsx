@@ -60,6 +60,7 @@ const ADDED_CODES = DIFFS.reduce((n, r) => n + r.onlyAI.length, 0);
 
 interface CodeStat {
     code: string;
+    matched: number;
     onlyManual: number;
     onlyAI: number;
     total: number;
@@ -73,7 +74,10 @@ const CODE_STATS: CodeStat[] = (() => {
         .map((code) => {
             const onlyManual = DIFFS.filter((r) => r.onlyManual.includes(code)).length;
             const onlyAI = DIFFS.filter((r) => r.onlyAI.includes(code)).length;
-            return { code, onlyManual, onlyAI, total: onlyManual + onlyAI };
+            // Matched in both (coluna da V3): respostas da amostra INTEIRA em que
+            // manual e AI aplicaram o code — referência de acerto do code.
+            const matched = SAMPLE_RESPONSES.filter((r) => r.inBoth.includes(code)).length;
+            return { code, matched, onlyManual, onlyAI, total: onlyManual + onlyAI };
         })
         .sort((a, b) => b.total - a.total || a.code.localeCompare(b.code));
 })();
@@ -167,7 +171,7 @@ const headerFrame: CSSProperties = { border: `1px solid ${color.border}`, border
 // estudos do RecreateCodebookModal): sem gap entre colunas; cada célula tem
 // padding 8px 12px e borda à direita (ver gridCell). Stacked segue com gap.
 const listColumns = (mode: CodeColumns): CSSProperties => {
-    if (mode === 'split') return { display: 'grid', gridTemplateColumns: 'minmax(220px, 1.4fr) repeat(3, minmax(0, 1fr)) 168px' };
+    if (mode === 'split') return { display: 'grid', gridTemplateColumns: 'minmax(220px, 1.4fr) repeat(3, minmax(160px, 1fr)) 168px' };
     if (mode === 'stacked') return { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 168px', columnGap: space.xl };
     return { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(220px, 32%) 168px' };
 };
@@ -253,6 +257,9 @@ function QualityCheckV3({
 
     const stacked = codeColumns === 'stacked';
     const split = codeColumns === 'split';
+    // Split (V3): títulos das colunas podem quebrar em 2 linhas quando falta
+    // espaço (em vez de um invadir o outro); nas outras versões, uma linha só.
+    const listHeaderCell: CSSProperties = split ? { ...headerCell, whiteSpace: 'normal' } : headerCell;
     const decisionOf = (id: string): QcDecision => decisions[id] ?? 'manual';
     const manualRows = DIFFS.filter((r) => decisionOf(r.id) === 'manual');
     const aiCount = DIFFS.length - manualRows.length;
@@ -293,7 +300,9 @@ function QualityCheckV3({
                 backgroundColor: 'rgba(17, 24, 39, 0.55)',
                 display: 'flex',
                 alignItems: 'flex-start',
-                justifyContent: 'center',
+                // Split (V3): 'safe center' — com o modal mais largo que a tela
+                // (minWidth), o overlay rola na horizontal sem cortar a esquerda.
+                justifyContent: split ? 'safe center' : 'center',
                 zIndex: 2100,
                 padding: `${space.xl} 0`,
                 overflow: 'auto',
@@ -308,6 +317,9 @@ function QualityCheckV3({
                     // são o padding vertical do overlay (24px em cima e embaixo).
                     width: split ? '95vw' : '85vw',
                     maxWidth: split ? '95vw' : '85vw',
+                    // Split (V3): não encolhe abaixo de 1024px — abaixo disso a
+                    // tabela espremeria as colunas; o overlay rola na horizontal.
+                    minWidth: split ? '1024px' : undefined,
                     margin: split ? 0 : '0.5rem',
                     height: split ? 'calc(100vh - 48px)' : 'calc(100vh - 110px)',
                     display: 'flex',
@@ -530,7 +542,7 @@ function QualityCheckV3({
                                 cabeçalho não funciona); o raio fica no cabeçalho. */}
                             {view === 'code' ? (
                                 <div style={tableFrame}>
-                                    <CodeTable stats={CODE_STATS} stickyTop={toolbarH} hoverable={split} striped={split} />
+                                    <CodeTable stats={CODE_STATS} stickyTop={toolbarH} hoverable={split} striped={split} withMatched={split} />
                                 </div>
                             ) : (
                             <div style={tableFrame}>
@@ -549,13 +561,13 @@ function QualityCheckV3({
                                     }}
                                 >
                                     {/* No stacked a linha traz a resposta e os grupos de codes. */}
-                                    <span role="columnheader" style={{ ...headerCell, ...gridCell(codeColumns) }}>
+                                    <span role="columnheader" style={{ ...listHeaderCell, ...gridCell(codeColumns) }}>
                                         {codeColumns === 'stacked' ? 'Response and codes' : 'Response'}
                                     </span>
                                     {codeColumns === 'split' &&
-                                        CODE_GROUPS.map((g) => <span key={g} role="columnheader" style={{ ...headerCell, ...gridCell(codeColumns) }}>{g}</span>)}
-                                    {codeColumns === 'diff' && <span role="columnheader" style={{ ...headerCell, ...gridCell(codeColumns) }}>Differences</span>}
-                                    <span role="columnheader" style={{ ...headerCell, justifyContent: 'flex-end', ...gridCell(codeColumns, true) }}>Correct coding</span>
+                                        CODE_GROUPS.map((g) => <span key={g} role="columnheader" style={{ ...listHeaderCell, ...gridCell(codeColumns) }}>{g}</span>)}
+                                    {codeColumns === 'diff' && <span role="columnheader" style={{ ...listHeaderCell, ...gridCell(codeColumns) }}>Differences</span>}
+                                    <span role="columnheader" style={{ ...listHeaderCell, justifyContent: 'flex-end', ...gridCell(codeColumns, true) }}>Correct coding</span>
                                 </div>
                                 </div>
 
@@ -716,11 +728,14 @@ function Segmented<T extends string>({
 // Tabela da visão By code — cópia da CodeTable da V1 (diagnóstico, sem
 // ações): header cinza em caixa alta, linhas de 35px, grade vertical e
 // horizontal e sort por coluna.
-type CodeSortKey = 'code' | 'onlyManual' | 'onlyAI' | 'total';
+type CodeSortKey = 'code' | 'matched' | 'onlyManual' | 'onlyAI' | 'total';
 
-// `hoverable` (V3): linha destacada em surfaceHover ao passar o mouse.
+// `hoverable` (V3): linha destacada em controlHover ao passar o mouse.
 // `striped` (V3): zebra — linhas ímpares em surfaceMuted, como a By response.
-function CodeTable({ stats, stickyTop, hoverable = false, striped = false }: { stats: CodeStat[]; stickyTop: number; hoverable?: boolean; striped?: boolean }) {
+// `withMatched` (V3): coluna Matched in both e ordem igual à By response
+// (Code · Matched in both · Only in manual coding · Only in AI coding ·
+// Differences, com Differences no fim como total).
+function CodeTable({ stats, stickyTop, hoverable = false, striped = false, withMatched = false }: { stats: CodeStat[]; stickyTop: number; hoverable?: boolean; striped?: boolean; withMatched?: boolean }) {
     const [hoveredCode, setHoveredCode] = useState<string | null>(null);
     // Sem sort ativo, mantém a ordem padrão (total de diferenças desc).
     const [sort, setSort] = useState<{ key: CodeSortKey; dir: SortDir } | null>(null);
@@ -741,7 +756,10 @@ function CodeTable({ stats, stickyTop, hoverable = false, striped = false }: { s
     );
 
     // Code · Differences · Only manual · Only AI
-    const gridCols = 'minmax(0, 440px) minmax(135px, 1fr) minmax(220px, 1fr) minmax(190px, 1fr)';
+    // (withMatched: Code · Matched in both · Only manual · Only AI · Differences)
+    const gridCols = withMatched
+        ? 'minmax(0, 440px) minmax(170px, 1fr) minmax(220px, 1fr) minmax(190px, 1fr) minmax(135px, 1fr)'
+        : 'minmax(0, 440px) minmax(135px, 1fr) minmax(220px, 1fr) minmax(190px, 1fr)';
     const gridLine = `1px solid ${color.border}`;
     const row: CSSProperties = { display: 'grid', gridTemplateColumns: gridCols, alignItems: 'stretch', minHeight: '35px' };
     const td = (align: 'left' | 'right', last = false): CSSProperties => ({
@@ -763,9 +781,20 @@ function CodeTable({ stats, stickyTop, hoverable = false, striped = false }: { s
             <div style={stickyHeaderShell(stickyTop)}>
                 <div role="row" style={{ ...row, ...headerFrame }}>
                     {header('Code', 'code', 'left')}
-                    {header('Differences', 'total')}
-                    {header('Only in manual coding', 'onlyManual')}
-                    {header('Only in AI coding', 'onlyAI', 'right', true)}
+                    {withMatched ? (
+                        <>
+                            {header('Matched in both', 'matched')}
+                            {header('Only in manual coding', 'onlyManual')}
+                            {header('Only in AI coding', 'onlyAI')}
+                            {header('Differences', 'total', 'right', true)}
+                        </>
+                    ) : (
+                        <>
+                            {header('Differences', 'total')}
+                            {header('Only in manual coding', 'onlyManual')}
+                            {header('Only in AI coding', 'onlyAI', 'right', true)}
+                        </>
+                    )}
                 </div>
             </div>
             {sortedStats.map((s, i) => (
@@ -776,7 +805,7 @@ function CodeTable({ stats, stickyTop, hoverable = false, striped = false }: { s
                     onMouseLeave={hoverable ? () => setHoveredCode((c) => (c === s.code ? null : c)) : undefined}
                     style={{
                         ...row,
-                        backgroundColor: hoverable && hoveredCode === s.code ? color.surfaceHover : striped && i % 2 === 1 ? color.surfaceMuted : color.surface,
+                        backgroundColor: hoverable && hoveredCode === s.code ? color.controlHover : striped && i % 2 === 1 ? color.surfaceMuted : color.surface,
                         borderBottom: i === sortedStats.length - 1 ? undefined : gridLine,
                         // Última linha acompanha o raio do contorno (o fundo do hover
                         // não vaza nos cantos).
@@ -784,9 +813,20 @@ function CodeTable({ stats, stickyTop, hoverable = false, striped = false }: { s
                     }}
                 >
                     <span role="cell" style={td('left')}><span title={s.code} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.code}</span></span>
-                    <span role="cell" style={td('right')}>{s.total}</span>
-                    <span role="cell" style={td('right')}>{s.onlyManual}</span>
-                    <span role="cell" style={td('right', true)}>{s.onlyAI}</span>
+                    {withMatched ? (
+                        <>
+                            <span role="cell" style={td('right')}>{s.matched}</span>
+                            <span role="cell" style={td('right')}>{s.onlyManual}</span>
+                            <span role="cell" style={td('right')}>{s.onlyAI}</span>
+                            <span role="cell" style={td('right', true)}>{s.total}</span>
+                        </>
+                    ) : (
+                        <>
+                            <span role="cell" style={td('right')}>{s.total}</span>
+                            <span role="cell" style={td('right')}>{s.onlyManual}</span>
+                            <span role="cell" style={td('right', true)}>{s.onlyAI}</span>
+                        </>
+                    )}
                 </div>
             ))}
         </div>
@@ -870,9 +910,9 @@ function ReviewRow({
                 alignItems: hasGridLines(codeColumns) ? 'stretch' : 'start',
                 padding: hasGridLines(codeColumns) ? 0 : space.lg,
                 borderBottom: isLast ? undefined : `1px solid ${color.border}`,
-                // Split (V3): hover em surfaceHover (mesmo da tabela do Coder),
+                // Split (V3): hover em controlHover (mesmo das outras tabelas),
                 // um tom acima da zebra; a linha em si não é clicável.
-                backgroundColor: hovered ? color.surfaceHover : striped ? color.surfaceMuted : undefined,
+                backgroundColor: hovered ? color.controlHover : striped ? color.surfaceMuted : undefined,
                 // A lista não corta o overflow (sticky): a última linha acompanha
                 // o raio do container para o fundo zebrado não vazar nos cantos.
                 borderRadius: isLast ? `0 0 ${radius.lg} ${radius.lg}` : undefined,

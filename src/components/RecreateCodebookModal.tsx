@@ -549,7 +549,7 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
                                             No studies match “{query.trim()}”.
                                         </div>
                                     )}
-                                    {sortedStudies.map((study) => {
+                                    {sortedStudies.map((study, studyIndex) => {
                                         const qIds = study.questions.map((q) => q.id);
                                         const selectedCount = qIds.filter((id) => selectedSet.has(id)).length;
                                         const totalResponses = study.questions.reduce((sum, q) => sum + q.responses, 0);
@@ -562,8 +562,12 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
                                         // Expandir NÃO muda a cor da linha. A cor reflete só a
                                         // seleção: branca por padrão, tint quando há perguntas
                                         // selecionadas. (onDark mantido = false para os ramos abaixo.)
+                                        // Zebra: sem seleção, linhas ímpares em surfaceMuted (mesmo
+                                        // padrão da tabela do Coder); o tint de seleção prevalece.
                                         const onDark = false;
-                                        const rowBg = state === 'unchecked' ? color.surface : color.brandSoft;
+                                        const rowBg = state !== 'unchecked'
+                                            ? color.brandSoft
+                                            : studyIndex % 2 === 1 ? color.surfaceMuted : color.surface;
                                         const nameColor = color.textDark;
                                         const metaColor = color.textDark;
                                         return (
@@ -586,7 +590,7 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
                                                         borderBottom: gridLine,
                                                         backgroundColor: rowBg,
                                                     }}
-                                                    onMouseEnter={(e) => { if (!onDark && state === 'unchecked') e.currentTarget.style.backgroundColor = color.surfaceHover; }}
+                                                    onMouseEnter={(e) => { if (!onDark && state === 'unchecked') e.currentTarget.style.backgroundColor = color.controlHover; }}
                                                     onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = rowBg; }}
                                                 >
                                                     {/* Expander cell — coluna cinza à esquerda com +/- */}
@@ -650,7 +654,10 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
                                                             {/* Child rows */}
                                                             {sortedQuestions.map((q, idx) => {
                                                                 const checked = selectedSet.has(q.id);
-                                                                const childBg = checked ? color.brandSoft : color.surface;
+                                                                // Zebra (ímpares em surfaceMuted); o tint de seleção prevalece.
+                                                                const childBg = checked
+                                                                    ? color.brandSoft
+                                                                    : idx % 2 === 1 ? color.surfaceMuted : color.surface;
                                                                 return (
                                                                     <div
                                                                         key={q.id}
@@ -670,12 +677,12 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
                                                                             borderTop: idx === 0 ? 'none' : gridLine,
                                                                             backgroundColor: childBg,
                                                                         }}
-                                                                        onMouseEnter={(e) => { if (!checked) e.currentTarget.style.backgroundColor = color.surfaceHover; }}
+                                                                        onMouseEnter={(e) => { if (!checked) e.currentTarget.style.backgroundColor = color.controlHover; }}
                                                                         onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = childBg; }}
                                                                     >
                                                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', borderRight: gridLine }}>
                                                                             {checked
-                                                                                ? <CheckSquare size={20} weight="fill" color={color.brand} />
+                                                                                ? <CheckSquare size={20} weight="fill" color={color.brandPrimary} />
                                                                                 : <Square size={20} color={color.textFaint} />}
                                                                         </div>
                                                                         <div style={{ display: 'flex', alignItems: 'center', minWidth: 0, padding: `${space.sm} ${space.md}`, borderRight: gridLine }}>
@@ -868,7 +875,7 @@ function TriStateCheckbox({
     /** 'onDark' = ícone branco, para uso sobre a linha destacada (aberta). */
     tone?: 'default' | 'onDark';
 }) {
-    const checkColor = tone === 'onDark' ? color.surface : color.brand;
+    const checkColor = tone === 'onDark' ? color.surface : color.brandPrimary;
     const emptyColor = tone === 'onDark' ? color.surface : color.textFaint;
     return (
         <button

@@ -175,7 +175,7 @@ function AICodebooksTable({ searchQuery = '', onSelectionChange, extraCodebooks 
                                 style={{ backgroundColor: isSelected ? color.border : index % 2 === 0 ? color.surface : color.surfaceMuted, cursor: 'pointer', transition: 'background-color 0.15s ease' }}
                                 onMouseEnter={(event) => {
                                     setHoveredRowId(codebook.id);
-                                    if (!isSelected) event.currentTarget.style.backgroundColor = color.surfaceHover;
+                                    if (!isSelected) event.currentTarget.style.backgroundColor = color.controlHover;
                                 }}
                                 onMouseLeave={(event) => {
                                     setHoveredRowId(null);

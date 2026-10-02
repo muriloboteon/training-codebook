@@ -114,7 +114,7 @@ function AICodebooksTable({ searchQuery = '', onSelectionChange, extraCodebooks 
         color: color.textHeaderGroup,
         textTransform: 'uppercase',
         letterSpacing: '0.05em',
-        borderBottom: `1px solid ${color.border}`,
+        borderBottom: `1px solid ${color.borderInput}`,
         backgroundColor: color.surfaceSubtle,
         whiteSpace: 'nowrap',
     };
@@ -127,8 +127,8 @@ function AICodebooksTable({ searchQuery = '', onSelectionChange, extraCodebooks 
         color: color.textMuted,
         textTransform: 'uppercase',
         letterSpacing: '0.03em',
-        borderBottom: `1px solid ${color.border}`,
-        borderRight: `1px solid ${color.borderSubtle}`,
+        borderBottom: `1px solid ${color.borderInput}`,
+        borderRight: `1px solid ${color.borderInput}`,
         backgroundColor: color.surfaceSubtle,
         whiteSpace: 'nowrap',
     };
@@ -137,19 +137,19 @@ function AICodebooksTable({ searchQuery = '', onSelectionChange, extraCodebooks 
         padding: `${space.sm} ${space.md}`,
         fontSize: font.size.md,
         color: color.text,
-        borderBottom: `1px solid ${color.surfaceHover}`,
-        borderRight: `1px solid ${color.borderSubtle}`,
+        borderBottom: `1px solid ${color.borderInput}`,
+        borderRight: `1px solid ${color.borderInput}`,
         whiteSpace: 'nowrap',
         overflow: 'hidden',
         textOverflow: 'ellipsis',
     };
 
     return (
-        <div style={{ width: '100%', border: `1px solid ${color.border}`, borderRadius: radius.lg, overflow: 'auto', backgroundColor: color.surface, fontFamily: font.family }}>
+        <div style={{ width: '100%', border: `1px solid ${color.borderInput}`, borderRadius: radius.lg, overflow: 'auto', backgroundColor: color.surface, fontFamily: font.family }}>
             <table style={{ width: '100%', minWidth: '1250px', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
                 <thead>
                     <tr>
-                        <th style={{ ...groupHeaderStyle, width: '90px', borderRight: `1px solid ${color.borderSubtle}` }}>ACTION</th>
+                        <th style={{ ...groupHeaderStyle, width: '90px', borderRight: `1px solid ${color.borderInput}` }}>ACTION</th>
                         <th colSpan={9} style={groupHeaderStyle}>CODEBOOKS</th>
                     </tr>
                     <tr>

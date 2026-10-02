@@ -5,9 +5,6 @@ import {
     MagnifyingGlass,
     Plus,
     Minus,
-    CheckSquare,
-    Square,
-    MinusSquare,
     CaretUp,
     CaretDown,
     ArrowsDownUp,
@@ -216,6 +213,7 @@ export function SortHeader({
     active,
     dir,
     borderRight = false,
+    dividerColor = color.border,
     onClick,
 }: {
     label: string;
@@ -223,6 +221,7 @@ export function SortHeader({
     active: boolean;
     dir: SortDir;
     borderRight?: boolean;
+    dividerColor?: string;
     onClick: () => void;
 }) {
     return (
@@ -240,7 +239,7 @@ export function SortHeader({
                 border: 'none',
                 // 'none' explícito (e não undefined): ao alternar a divisória, o
                 // React limparia border-right e o botão voltaria à borda nativa.
-                borderRight: borderRight ? `1px solid ${color.border}` : 'none',
+                borderRight: borderRight ? `1px solid ${dividerColor}` : 'none',
                 background: 'none',
                 cursor: 'pointer',
                 fontFamily: font.family,
@@ -388,7 +387,8 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
     // header (emula "grid dentro do grid", não a lib real).
     const parentGridCols = '40px 40px minmax(0, 1fr) 195px 96px 120px'; // +/- · checkbox · Study · Status · Questions · Responses
     const childGridCols = '40px minmax(0, 1fr) 160px 150px';      // checkbox · Question · Type · Responses
-    const gridLine = `1px solid ${color.border}`;                 // linha de grade (verticais/horizontais)
+    const gridLine = `1px solid ${color.borderInput}`;            // linha de grade (verticais/horizontais) — Figma border/default
+    const selectedLine = `1px solid ${color.borderSelected}`;     // linha de grade em linha selecionada (prevalece na borda compartilhada)
     const rowMinHeight = '35px';                                  // altura do header e das linhas
 
     return (
@@ -538,9 +538,9 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
                                     >
                                         <span aria-hidden="true" style={{ borderRight: gridLine }} />{/* expander */}
                                         <span aria-hidden="true" style={{ borderRight: gridLine }} />{/* checkbox */}
-                                        <SortHeader label="Study ID" borderRight active={studySort?.key === 'name'} dir={studySort?.key === 'name' ? studySort.dir : 'asc'} onClick={() => toggleStudySort('name')} />
-                                        <SortHeader label="Status" borderRight active={studySort?.key === 'status'} dir={studySort?.key === 'status' ? studySort.dir : 'asc'} onClick={() => toggleStudySort('status')} />
-                                        <SortHeader label="Questions" align="right" borderRight active={studySort?.key === 'questions'} dir={studySort?.key === 'questions' ? studySort.dir : 'asc'} onClick={() => toggleStudySort('questions')} />
+                                        <SortHeader label="Study ID" borderRight dividerColor={color.borderInput} active={studySort?.key === 'name'} dir={studySort?.key === 'name' ? studySort.dir : 'asc'} onClick={() => toggleStudySort('name')} />
+                                        <SortHeader label="Status" borderRight dividerColor={color.borderInput} active={studySort?.key === 'status'} dir={studySort?.key === 'status' ? studySort.dir : 'asc'} onClick={() => toggleStudySort('status')} />
+                                        <SortHeader label="Questions" align="right" borderRight dividerColor={color.borderInput} active={studySort?.key === 'questions'} dir={studySort?.key === 'questions' ? studySort.dir : 'asc'} onClick={() => toggleStudySort('questions')} />
                                         <SortHeader label="Responses" align="right" active={studySort?.key === 'responses'} dir={studySort?.key === 'responses' ? studySort.dir : 'asc'} onClick={() => toggleStudySort('responses')} />
                                     </div>
 
@@ -549,7 +549,7 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
                                             No studies match “{query.trim()}”.
                                         </div>
                                     )}
-                                    {sortedStudies.map((study, studyIndex) => {
+                                    {sortedStudies.map((study, studyIndex, all) => {
                                         const qIds = study.questions.map((q) => q.id);
                                         const selectedCount = qIds.filter((id) => selectedSet.has(id)).length;
                                         const totalResponses = study.questions.reduce((sum, q) => sum + q.responses, 0);
@@ -570,6 +570,15 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
                                             : studyIndex % 2 === 1 ? color.surfaceMuted : color.surface;
                                         const nameColor = color.textDark;
                                         const metaColor = color.textDark;
+                                        // Divisórias: roxas na linha selecionada (com tint). A borda
+                                        // compartilhada com a próxima linha também fica roxa se a
+                                        // próxima estiver selecionada.
+                                        const rowSelected = state !== 'unchecked';
+                                        const next = all[studyIndex + 1];
+                                        const nextSelected = !!next && next.questions.some((q) => selectedSet.has(q.id));
+                                        const cellLine = rowSelected ? selectedLine : gridLine;
+                                        const rowBottomLine = rowSelected || (!expanded && nextSelected) ? selectedLine : gridLine;
+                                        const detailBottomLine = nextSelected ? selectedLine : gridLine;
                                         return (
                                             <div key={study.id}>
                                                 {/* Parent row (study) */}
@@ -587,14 +596,14 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
                                                         alignItems: 'stretch',
                                                         minHeight: rowMinHeight,
                                                         cursor: 'pointer',
-                                                        borderBottom: gridLine,
+                                                        borderBottom: rowBottomLine,
                                                         backgroundColor: rowBg,
                                                     }}
                                                     onMouseEnter={(e) => { if (!onDark && state === 'unchecked') e.currentTarget.style.backgroundColor = color.controlHover; }}
                                                     onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = rowBg; }}
                                                 >
                                                     {/* Expander cell — coluna cinza à esquerda com +/- */}
-                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', borderRight: gridLine, backgroundColor: onDark ? 'transparent' : color.surfaceSubtle }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', borderRight: cellLine, backgroundColor: onDark ? 'transparent' : color.surfaceSubtle }}>
                                                         {expanded
                                                             ? <Minus size={16} weight="bold" color={onDark ? color.surface : color.textMuted} />
                                                             : <Plus size={16} weight="bold" color={color.textMuted} />}
@@ -602,7 +611,7 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
                                                     {/* Checkbox cell — não deve expandir/colapsar */}
                                                     <div
                                                         onClick={(e) => e.stopPropagation()}
-                                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', borderRight: gridLine }}
+                                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', borderRight: cellLine }}
                                                     >
                                                         <TriStateCheckbox
                                                             state={state}
@@ -612,17 +621,17 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
                                                         />
                                                     </div>
                                                     {/* Study name + badge de seleção */}
-                                                    <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: space.sm, padding: `${space.sm} ${space.md}`, borderRight: gridLine }}>
+                                                    <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: space.sm, padding: `${space.sm} ${space.md}`, borderRight: cellLine }}>
                                                         <span style={{ flex: 1, minWidth: 0, fontSize: font.size.md, fontWeight: font.weight.regular, color: nameColor, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                             {study.name}
                                                         </span>
                                                     </div>
                                                     {/* Status tag */}
-                                                    <div style={{ display: 'flex', alignItems: 'center', padding: `${space.xs} ${space.md}`, borderRight: gridLine, minWidth: 0 }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', padding: `${space.xs} ${space.md}`, borderRight: cellLine, minWidth: 0 }}>
                                                         <StatusTag status={study.status} />
                                                     </div>
                                                     {/* Questions count (alinhado à direita) */}
-                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: `${space.sm} ${space.md}`, borderRight: gridLine, fontSize: font.size.md, color: metaColor }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: `${space.sm} ${space.md}`, borderRight: cellLine, fontSize: font.size.md, color: metaColor }}>
                                                         {study.questions.length}
                                                     </div>
                                                     {/* Responses total (alinhado à direita, última coluna) */}
@@ -633,7 +642,7 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
 
                                                 {/* Detail row — sub-grid de perguntas */}
                                                 {expanded && (
-                                                    <div style={{ backgroundColor: color.surface, padding: space.md, paddingLeft: '80px', borderBottom: gridLine }}>
+                                                    <div style={{ backgroundColor: color.surface, padding: space.md, paddingLeft: '80px', borderBottom: detailBottomLine }}>
                                                         <div style={{ border: gridLine, borderRadius: radius.lg, overflow: 'hidden', backgroundColor: color.surface }}>
                                                             {/* Child header */}
                                                             <div
@@ -647,8 +656,8 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
                                                                 }}
                                                             >
                                                                 <span aria-hidden="true" style={{ borderRight: gridLine }} />{/* checkbox */}
-                                                                <SortHeader label="Question ID" borderRight active={questionSort.key === 'text'} dir={questionSort.key === 'text' ? questionSort.dir : 'asc'} onClick={() => toggleQuestionSort('text')} />
-                                                                <SortHeader label="Type" borderRight active={questionSort.key === 'type'} dir={questionSort.key === 'type' ? questionSort.dir : 'asc'} onClick={() => toggleQuestionSort('type')} />
+                                                                <SortHeader label="Question ID" borderRight dividerColor={color.borderInput} active={questionSort.key === 'text'} dir={questionSort.key === 'text' ? questionSort.dir : 'asc'} onClick={() => toggleQuestionSort('text')} />
+                                                                <SortHeader label="Type" borderRight dividerColor={color.borderInput} active={questionSort.key === 'type'} dir={questionSort.key === 'type' ? questionSort.dir : 'asc'} onClick={() => toggleQuestionSort('type')} />
                                                                 <SortHeader label="Responses" align="right" active={questionSort.key === 'responses'} dir={questionSort.key === 'responses' ? questionSort.dir : 'asc'} onClick={() => toggleQuestionSort('responses')} />
                                                             </div>
                                                             {/* Child rows */}
@@ -658,6 +667,11 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
                                                                 const childBg = checked
                                                                     ? color.brandSoft
                                                                     : idx % 2 === 1 ? color.surfaceMuted : color.surface;
+                                                                // Divisórias roxas na linha marcada; a borda compartilhada
+                                                                // com a linha anterior fica roxa se qualquer uma estiver marcada.
+                                                                const prevChecked = idx > 0 && selectedSet.has(sortedQuestions[idx - 1].id);
+                                                                const childCellLine = checked ? selectedLine : gridLine;
+                                                                const childTopLine = checked || prevChecked ? selectedLine : gridLine;
                                                                 return (
                                                                     <div
                                                                         key={q.id}
@@ -674,24 +688,22 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
                                                                             alignItems: 'stretch',
                                                                             minHeight: rowMinHeight,
                                                                             cursor: 'pointer',
-                                                                            borderTop: idx === 0 ? 'none' : gridLine,
+                                                                            borderTop: idx === 0 ? 'none' : childTopLine,
                                                                             backgroundColor: childBg,
                                                                         }}
                                                                         onMouseEnter={(e) => { if (!checked) e.currentTarget.style.backgroundColor = color.controlHover; }}
                                                                         onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = childBg; }}
                                                                     >
-                                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', borderRight: gridLine }}>
-                                                                            {checked
-                                                                                ? <CheckSquare size={20} weight="fill" color={color.brandPrimary} />
-                                                                                : <Square size={20} color={color.textFaint} />}
+                                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', borderRight: childCellLine }}>
+                                                                            <CheckboxIcon state={checked ? 'checked' : 'unchecked'} />
                                                                         </div>
-                                                                        <div style={{ display: 'flex', alignItems: 'center', minWidth: 0, padding: `${space.sm} ${space.md}`, borderRight: gridLine }}>
+                                                                        <div style={{ display: 'flex', alignItems: 'center', minWidth: 0, padding: `${space.sm} ${space.md}`, borderRight: childCellLine }}>
                                                                             <span style={{ minWidth: 0, fontSize: font.size.md, color: color.textDark, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                                                 {q.text}
                                                                             </span>
                                                                         </div>
                                                                         {/* Type tag */}
-                                                                        <div style={{ display: 'flex', alignItems: 'center', minWidth: 0, padding: `${space.xs} ${space.md}`, borderRight: gridLine }}>
+                                                                        <div style={{ display: 'flex', alignItems: 'center', minWidth: 0, padding: `${space.xs} ${space.md}`, borderRight: childCellLine }}>
                                                                             <TypeTag type={q.type} />
                                                                         </div>
                                                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: `${space.sm} ${space.md}`, fontSize: font.size.md, color: color.textDark }}>
@@ -875,8 +887,6 @@ function TriStateCheckbox({
     /** 'onDark' = ícone branco, para uso sobre a linha destacada (aberta). */
     tone?: 'default' | 'onDark';
 }) {
-    const checkColor = tone === 'onDark' ? color.surface : color.brandPrimary;
-    const emptyColor = tone === 'onDark' ? color.surface : color.textFaint;
     return (
         <button
             type="button"
@@ -895,10 +905,28 @@ function TriStateCheckbox({
                 cursor: 'pointer',
             }}
         >
-            {state === 'checked' && <CheckSquare size={20} weight="fill" color={checkColor} />}
-            {state === 'indeterminate' && <MinusSquare size={20} weight="fill" color={checkColor} />}
-            {state === 'unchecked' && <Square size={20} color={emptyColor} />}
+            <CheckboxIcon state={state} tone={tone} />
         </button>
+    );
+}
+
+// Checkbox arredondado (rx 2) da tabela — Figma "Table / Rounded Checkbox".
+// Unchecked: contorno 1.5px textMuted. Checked/indeterminate: preenchido em
+// brandPrimary com marca branca de 2px.
+function CheckboxIcon({ state, tone = 'default' }: { state: CheckState; tone?: 'default' | 'onDark' }) {
+    const boxColor = tone === 'onDark' ? color.surface : color.brandPrimary;
+    const markColor = tone === 'onDark' ? color.brandPrimary : color.surface;
+    const emptyColor = tone === 'onDark' ? color.surface : color.textMuted;
+    return (
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true" style={{ display: 'block', flexShrink: 0 }}>
+            {state === 'unchecked'
+                ? <rect x="1.75" y="1.75" width="16.5" height="16.5" rx="2" stroke={emptyColor} strokeWidth="1.5" />
+                : <rect x="1" y="1" width="18" height="18" rx="2" fill={boxColor} />}
+            {state === 'checked' && (
+                <path d="M5.5 10.5L8.5 13.5L14.5 6.5" stroke={markColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            )}
+            {state === 'indeterminate' && <path d="M6 10H14" stroke={markColor} strokeWidth="2" strokeLinecap="round" />}
+        </svg>
     );
 }
 

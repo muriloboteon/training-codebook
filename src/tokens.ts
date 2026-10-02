@@ -93,6 +93,7 @@ export const color = {
     borderStrong: "#D1D5DB", // borda em linha selecionada
     borderSubtle: "#EAECEF", // divisórias internas de célula
     borderInput: "#D6DDE1",  // border/default (divisória da sub-header)
+    borderSelected: "#E4D3F7", // divisórias de linha selecionada (Figma "Row states · Selected")
     borderControl: "#889EA8",// borda de inputs/botões (input/button border)
     borderCard: "#E0E6EA",   // borda dos cards de resposta do Quality Check — rgb(224, 230, 234)
     // Texto

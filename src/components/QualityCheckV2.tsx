@@ -7,6 +7,10 @@ import SelectField from './SelectField';
 import { FALLBACK_SAMPLE, SAMPLE_RESPONSES, type QcDecision, type QcDerivedResponse } from './qualityCheckV2Data';
 
 // -----------------------------------------------------------------------------
+// DESCARTADO — NÃO IMPLEMENTAR. Este é o layout "V1" do switch do
+// QualityCheckPrototype, mantido oculto só para comparação. A versão escolhida
+// é a V3 (QualityCheckV3 codeColumns="split").
+//
 // QualityCheckV2 — nova experiência do Quality Check, construída do zero em
 // paralelo à V1 (QualityCheckPanel). TEMPORÁRIO: aberto pelo botão "Run
 // quality check V2" do AccountCodebookRulesModal, depois do mesmo seletor de

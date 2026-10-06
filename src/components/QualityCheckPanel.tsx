@@ -4,6 +4,10 @@ import './qualityCheckPanel.css';
 import type { TrainingQuestion } from './RecreateCodebookModal';
 
 // -----------------------------------------------------------------------------
+// DESCARTADO — NÃO IMPLEMENTAR. Primeira versão do Quality Check, oculta
+// (nenhum botão a abre). A versão escolhida é a V3 (QualityCheckV3
+// codeColumns="split", via QualityCheckPrototype).
+//
 // QualityCheckPanel — relatório de diferenças do "Quality Check" do fluxo de
 // treino.
 //

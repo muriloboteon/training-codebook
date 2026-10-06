@@ -8,7 +8,10 @@ import { FALLBACK_SAMPLE, SAMPLE_RESPONSES, type QcDecision, type QcDerivedRespo
 
 // -----------------------------------------------------------------------------
 // QualityCheckV3 — layout PROPOSTO do Quality Check, focado em escaneabilidade.
-// TEMPORÁRIO: aberto pelo switch "Prototype layout" do QualityCheckPrototype,
+// VERSÃO ESCOLHIDA: o layout "V3" (codeColumns="split") é o que deve ser
+// implementado; os modos 'diff' (V2) e 'stacked' (V4) foram descartados e só
+// seguem aqui ocultos (ver QualityCheckPrototype).
+// Histórico: aberto pelo switch "Prototype layout" do QualityCheckPrototype,
 // ao lado do layout atual (QualityCheckV2), que continua intacto. Mesmos dados
 // (qualityCheckV2Data) e mesmas saídas para o pai.
 //

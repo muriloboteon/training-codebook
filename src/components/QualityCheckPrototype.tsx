@@ -20,12 +20,16 @@ import type { QcDecision } from './qualityCheckV2Data';
 // As decisões por resposta ficam aqui, então sobrevivem à troca de layout. Em
 // todas as versões, ausente = Manual (default, feedback da PM).
 //
-// Para remover as propostas: renderizar QualityCheckV2 direto no
-// AccountCodebookRulesModal (com o estado de decisões) e apagar este arquivo e
-// o QualityCheckV3.
+// DECISÃO: seguimos com a V3 (QualityCheckV3 codeColumns="split"). É a única
+// versão a implementar. V1, V2 e V4 foram descartadas e só continuam no código
+// para eventual comparação com a PM: o switch está OCULTO (SHOW_LAYOUT_SWITCH)
+// e o layout fixo em V3. Para reexibir, ligue SHOW_LAYOUT_SWITCH.
 // -----------------------------------------------------------------------------
 
 type Layout = 'v1' | 'v2' | 'v3' | 'v4';
+
+// Switch "Prototype layout" oculto: a V3 é a versão escolhida.
+const SHOW_LAYOUT_SWITCH = false;
 
 // Layout → modo de colunas do QualityCheckV3 (V2 em diante).
 const CODE_COLUMNS: Record<Exclude<Layout, 'v1'>, CodeColumns> = {
@@ -43,10 +47,10 @@ interface QualityCheckPrototypeProps {
 }
 
 function QualityCheckPrototype(props: QualityCheckPrototypeProps) {
-    const [layout, setLayout] = useState<Layout>('v1');
+    const [layout, setLayout] = useState<Layout>('v3');
     const [decisions, setDecisions] = useState<Record<string, QcDecision>>({});
 
-    const layoutSwitch = <LayoutSwitch value={layout} onChange={setLayout} />;
+    const layoutSwitch = SHOW_LAYOUT_SWITCH ? <LayoutSwitch value={layout} onChange={setLayout} /> : undefined;
 
     return layout === 'v1' ? (
         <QualityCheckV2 {...props} decisions={decisions} onDecisionsChange={setDecisions} headerExtra={layoutSwitch} />

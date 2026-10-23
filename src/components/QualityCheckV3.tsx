@@ -46,6 +46,9 @@ import { FALLBACK_SAMPLE, SAMPLE_RESPONSES, type QcDecision, type QcDerivedRespo
 //     "Review the differences"; o
 //     bloco sticky fica só com a toolbar).
 //   - Menos espaço em volta do modal: 95vw × calc(100vh - 48px).
+//   - Quality score no lugar do Match rate (reunião com PM e dev): é o 1º
+//     indicador do summary e também vira coluna na tabela By code (ver
+//     QUALITY_SCORE / codeF1).
 //
 // Protótipo puramente visual: nada é persistido.
 // -----------------------------------------------------------------------------
@@ -67,7 +70,42 @@ interface CodeStat {
     onlyManual: number;
     onlyAI: number;
     total: number;
+    /** Quality score do code (F1, 0–1) — coluna da V3. */
+    score: number;
 }
+
+// Contagens de um code na amostra INTEIRA (respostas sem diferença só somam
+// em matched).
+const countCode = (code: string) => ({
+    matched: SAMPLE_RESPONSES.filter((r) => r.inBoth.includes(code)).length,
+    onlyManual: SAMPLE_RESPONSES.filter((r) => r.onlyManual.includes(code)).length,
+    onlyAI: SAMPLE_RESPONSES.filter((r) => r.onlyAI.includes(code)).length,
+});
+
+// Quality score de um code (F1): 2·matched / (2·matched + só manual + só AI).
+const codeF1 = ({ matched, onlyManual, onlyAI }: ReturnType<typeof countCode>) => {
+    const denom = 2 * matched + onlyManual + onlyAI;
+    return denom === 0 ? 0 : (2 * matched) / denom;
+};
+
+// Quality score geral: média dos F1 por code, ponderada pelas aplicações
+// manuais do code (matched + só manual). Codes que o humano nunca aplicou
+// ficam de fora (peso zero). Considera TODOS os codes da amostra, não só os
+// da tabela By code (que lista apenas codes com diferença).
+const QUALITY_SCORE = (() => {
+    const codes = Array.from(new Set(SAMPLE_RESPONSES.flatMap((r) => r.manualCodes)));
+    let weighted = 0;
+    let weight = 0;
+    for (const code of codes) {
+        const counts = countCode(code);
+        const support = counts.matched + counts.onlyManual;
+        weighted += codeF1(counts) * support;
+        weight += support;
+    }
+    return weight === 0 ? 0 : weighted / weight;
+})();
+
+const percent = (ratio: number) => `${Math.round(ratio * 100)}%`;
 
 // Codes envolvidos em alguma diferença, por total de diferenças (desc) — visão
 // By code (mesmo cálculo da V1).
@@ -75,12 +113,10 @@ const CODE_STATS: CodeStat[] = (() => {
     const codes = Array.from(new Set(DIFFS.flatMap((r) => [...r.onlyManual, ...r.onlyAI])));
     return codes
         .map((code) => {
-            const onlyManual = DIFFS.filter((r) => r.onlyManual.includes(code)).length;
-            const onlyAI = DIFFS.filter((r) => r.onlyAI.includes(code)).length;
             // Matched in both (coluna da V3): respostas da amostra INTEIRA em que
             // manual e AI aplicaram o code — referência de acerto do code.
-            const matched = SAMPLE_RESPONSES.filter((r) => r.inBoth.includes(code)).length;
-            return { code, matched, onlyManual, onlyAI, total: onlyManual + onlyAI };
+            const counts = countCode(code);
+            return { code, ...counts, total: counts.onlyManual + counts.onlyAI, score: codeF1(counts) };
         })
         .sort((a, b) => b.total - a.total || a.code.localeCompare(b.code));
 })();
@@ -436,8 +472,7 @@ function QualityCheckV3({
                                 >
                                     {/* Indicadores estilo dashboard: número em cima, texto
                                         de apoio embaixo, divisória fina entre eles. */}
-                                    <Kpi value={`${Math.round((MATCHED / TOTAL) * 100)}%`} label="Match rate" />
-                                    <Kpi value={`${DIFFS.length} / ${TOTAL}`} label="Responses with differences" divider />
+                                    <Kpi value={percent(QUALITY_SCORE)} label="Quality score" />
                                     <Kpi
                                         value={MISSED_CODES}
                                         label="Codes missed by AI Coder"
@@ -734,13 +769,15 @@ function Segmented<T extends string>({
 // Tabela da visão By code — cópia da CodeTable da V1 (diagnóstico, sem
 // ações): header cinza em caixa alta, linhas de 35px, grade vertical e
 // horizontal e sort por coluna.
-type CodeSortKey = 'code' | 'matched' | 'onlyManual' | 'onlyAI' | 'total';
+type CodeSortKey = 'code' | 'score' | 'matched' | 'onlyManual' | 'onlyAI' | 'total';
 
 // `hoverable` (V3): linha destacada em controlHover ao passar o mouse.
 // `striped` (V3): zebra — linhas ímpares em surfaceMuted, como a By response.
-// `withMatched` (V3): coluna Matched in both e ordem igual à By response
-// (Code · Matched in both · Only in manual coding · Only in AI coding ·
-// Differences, com Differences no fim como total).
+// `withMatched` (V3): colunas Quality score e Matched in both e ordem igual à
+// By response (Code · Quality score · Matched in both · Only in manual coding
+// · Only in AI coding · Differences, com Differences no fim como total). O
+// score vem logo após o code, como no summary: o número primeiro, depois as
+// contagens que o explicam.
 function CodeTable({ stats, stickyTop, hoverable = false, striped = false, withMatched = false }: { stats: CodeStat[]; stickyTop: number; hoverable?: boolean; striped?: boolean; withMatched?: boolean }) {
     const [hoveredCode, setHoveredCode] = useState<string | null>(null);
     // Sem sort ativo, mantém a ordem padrão (total de diferenças desc).
@@ -762,9 +799,9 @@ function CodeTable({ stats, stickyTop, hoverable = false, striped = false, withM
     );
 
     // Code · Differences · Only manual · Only AI
-    // (withMatched: Code · Matched in both · Only manual · Only AI · Differences)
+    // (withMatched: Code · Quality score · Matched in both · Only manual · Only AI · Differences)
     const gridCols = withMatched
-        ? 'minmax(0, 440px) minmax(170px, 1fr) minmax(220px, 1fr) minmax(190px, 1fr) minmax(135px, 1fr)'
+        ? 'minmax(0, 440px) minmax(150px, 1fr) minmax(170px, 1fr) minmax(220px, 1fr) minmax(190px, 1fr) minmax(135px, 1fr)'
         : 'minmax(0, 440px) minmax(135px, 1fr) minmax(220px, 1fr) minmax(190px, 1fr)';
     const gridLine = `1px solid ${color.border}`;
     const row: CSSProperties = { display: 'grid', gridTemplateColumns: gridCols, alignItems: 'stretch', minHeight: '35px' };
@@ -789,6 +826,7 @@ function CodeTable({ stats, stickyTop, hoverable = false, striped = false, withM
                     {header('Code', 'code', 'left')}
                     {withMatched ? (
                         <>
+                            {header('Quality score', 'score')}
                             {header('Matched in both', 'matched')}
                             {header('Only in manual coding', 'onlyManual')}
                             {header('Only in AI coding', 'onlyAI')}
@@ -821,6 +859,7 @@ function CodeTable({ stats, stickyTop, hoverable = false, striped = false, withM
                     <span role="cell" style={td('left')}><span title={s.code} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.code}</span></span>
                     {withMatched ? (
                         <>
+                            <span role="cell" style={td('right')}>{percent(s.score)}</span>
                             <span role="cell" style={td('right')}>{s.matched}</span>
                             <span role="cell" style={td('right')}>{s.onlyManual}</span>
                             <span role="cell" style={td('right')}>{s.onlyAI}</span>

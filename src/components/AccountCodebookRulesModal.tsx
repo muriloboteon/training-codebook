@@ -36,15 +36,10 @@ interface AccountCodebookRulesModalProps {
     sampleQuestions?: TrainingQuestion[];
     onClose: () => void;
     /** Chamado ao concluir — o pai cria o registro na tabela do AI Coder e fecha
-     *  este modal. `trained` diz se o codebook passou pelo Quality Check: quando
-     *  true, o pai nomeia o registro como "{origem} – AI trained" e marca
-     *  trained; caso contrário mantém a convenção "{origem} - AI". */
+     *  este modal. O registro é sempre "{origem} – AI trained" e trained, com ou
+     *  sem Quality Check; `trained` informa apenas se o QC foi concluído. */
     onCreate: (options?: { trained?: boolean }) => void;
 }
-
-// Sufixo anexado à regra de um code refinado pelo Quality Check. Serve tanto de
-// texto visível quanto de marcador para não reanexar em re-runs.
-const REFINE_MARKER = 'Refined after quality check.';
 
 // Ícones (portados dos SVGs FontAwesome do export) -----------------------------
 
@@ -352,8 +347,8 @@ function AccountCodebookRulesModal({ isOpen, sampleQuestions = [], onClose, onCr
     // ---- Quality Check -----------------------------------------------------
     // OPEN: mecânica do QC (opt-in vs. sempre acionável). Default do protótipo:
     // botão acionável, disparado manualmente.
-    // Fases do QC: idle → selecting (escolha da pergunta da amostra; pulada com
-    // uma pergunta só) → running (processamento inicial) → reviewing (relatório
+    // Fases do QC: idle → selecting (escolha da pergunta da amostra; com uma
+    // pergunta só ela já vem selecionada) → running (processamento inicial) → reviewing (relatório
     // de diferenças humano vs. AI, validado resposta a resposta) → applying
     // (processamento que refaz as regras, só se alguma resposta foi marcada
     // "Human is right") → idle (de volta ao codebook).
@@ -367,8 +362,8 @@ function AccountCodebookRulesModal({ isOpen, sampleQuestions = [], onClose, onCr
     // V2: cada nova rodada remonta o QualityCheckV2 (via key) para começar com
     // decisões/filtros limpos.
     const [v2RunId, setV2RunId] = useState(0);
-    // Se o QC já rodou ao menos uma vez nesta sessão do modal (nomeia o resultado
-    // como "… – AI trained"), com ou sem regras refinadas.
+    // Se o QC já rodou ao menos uma vez nesta sessão do modal, com ou sem regras
+    // refinadas (repassado no onCreate; o pai cria sempre como trained).
     const [qcCompleted, setQcCompleted] = useState(false);
     // Labels dos codes cujas regras foram refinadas pelo QC (para realce + badge).
     const [refinedLabels, setRefinedLabels] = useState<Set<string>>(new Set());
@@ -381,39 +376,25 @@ function AccountCodebookRulesModal({ isOpen, sampleQuestions = [], onClose, onCr
 
     const runQualityCheck = (variant: 'v1' | 'v2') => {
         setQcVariant(variant);
-        // Com mais de uma pergunta no treino, o usuário escolhe a amostra antes;
-        // com uma só, pula o seletor. As duas versões passam pelo processamento
+        // Sempre abre o seletor de amostra (com uma pergunta só, ela já vem
+        // selecionada). Depois dele, as duas versões passam pelo processamento
         // (fase 'running'), que controla o tempo simulado e, via onComplete,
         // abre o relatório da V1 ('reviewing') ou a experiência da V2 ('v2').
-        if (sampleQuestions.length > 1) {
-            setQcPhase('selecting');
-            return;
-        }
-        setSampleQuestion(sampleQuestions[0] ?? null);
-        if (variant === 'v2') setV2RunId((n) => n + 1);
-        setQcPhase('running');
+        setQcPhase('selecting');
     };
 
     // Validação concluída sem nada a refinar (todas "AI is right"): aceita as
-    // diferenças sem alterar regras. Conta como QC concluído (o codebook criado
-    // depois é nomeado "… – AI trained").
+    // diferenças sem alterar regras. Conta como QC concluído.
     const acceptQualityCheck = () => {
         setQcCompleted(true);
         setQcPhase('idle');
     };
 
-    // Conclusão do processamento de refino: refina em lote as regras dos codes
-    // das respostas marcadas "Human is right" (faltantes + extras) e realça as
-    // linhas alteradas, preservando a ordem original (edita in place em `rows`).
+    // Conclusão do processamento de refino: marca com a tag "Refined" os codes
+    // das respostas marcadas "Human is right" (faltantes + extras). O texto das
+    // regras não muda no protótipo.
     const applyQualityCheck = (codesToRefine: string[]) => {
-        const codeSet = new Set(codesToRefine);
-        if (codeSet.size > 0) {
-            const nextRows = rows.map((row) => {
-                if (row.kind !== 'code' || !codeSet.has(row.label)) return row;
-                if (row.rule.includes(REFINE_MARKER)) return row; // não reanexa em re-runs
-                return { ...row, rule: `${row.rule} ${REFINE_MARKER}` };
-            });
-            dispatch({ type: 'commit', rows: nextRows });
+        if (codesToRefine.length > 0) {
             setRefinedLabels((prev) => new Set([...prev, ...codesToRefine]));
         }
         setQcCompleted(true);
@@ -671,9 +652,8 @@ function AccountCodebookRulesModal({ isOpen, sampleQuestions = [], onClose, onCr
                             <ModalButton variant="tertiary" onClick={onClose}>
                                 Cancel
                             </ModalButton>
-                            {/* Conclusão: após o QC vira "Done" e cria o codebook como
-                                "… – AI trained" (trained); sem QC, mantém "Create
-                                Codebook" / "… - AI". */}
+                            {/* Conclusão: cria o codebook "… – AI trained" (trained),
+                                com ou sem QC. */}
                             <ModalButton
                                 variant="primary"
                                 onClick={() => onCreate(qcCompleted ? { trained: true } : undefined)}

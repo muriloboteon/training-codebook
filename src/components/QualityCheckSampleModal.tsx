@@ -8,11 +8,11 @@ import SelectField from './SelectField';
 // -----------------------------------------------------------------------------
 // QualityCheckSampleModal — seletor de amostra do Quality Check.
 //
-// Aberto ao clicar "Run quality check" quando o codebook foi treinado com mais
-// de uma pergunta: o usuário escolhe em qual pergunta a amostra vai rodar (não
-// faz sentido validar um codebook de streaming com respostas de fitness). As
-// opções são só as perguntas selecionadas no passo do Recreate. Com uma pergunta
-// só, o pai pula este modal e vai direto ao processamento.
+// Aberto sempre ao clicar "Run quality check": o usuário escolhe em qual
+// pergunta a amostra vai rodar (não faz sentido validar um codebook de streaming
+// com respostas de fitness). As opções são só as perguntas selecionadas no passo
+// do Recreate. Com uma pergunta só, ela já vem selecionada — o modal serve de
+// confirmação e mostra em qual pergunta o QC vai rodar.
 //
 // Layout: mesmo chrome do modal de Instructions / processamento (560px de
 // largura); a altura acompanha o conteúdo — só um SelectField de seleção única
@@ -32,12 +32,13 @@ interface QualityCheckSampleModalProps {
 }
 
 function QualityCheckSampleModal({ isOpen, questions, onRun, onCancel }: QualityCheckSampleModalProps) {
-    // Nada pré-selecionado: o botão fica desabilitado até o usuário escolher.
+    // Com várias perguntas nada vem pré-selecionado (o botão fica desabilitado
+    // até o usuário escolher); com uma só, ela já vem selecionada.
     const [selectedId, setSelectedId] = useState<string | null>(null);
 
     // Reseta a escolha a cada abertura.
     useEffect(() => {
-        if (isOpen) setSelectedId(null);
+        if (isOpen) setSelectedId(questions.length === 1 ? questions[0].id : null);
     }, [isOpen]);
 
     // Fecha com ESC.

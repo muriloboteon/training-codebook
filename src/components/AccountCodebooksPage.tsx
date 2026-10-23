@@ -46,26 +46,24 @@ function AccountCodebooksPage() {
         if (activeTab === 'ai-coder') setIsNewAICodebookModalOpen(true);
     };
 
-    // Cria um registro no AI Coder a partir de um codebook de Coder. O id segue a
-    // convenção de nomenclatura: "{origem} - AI" por padrão, ou "{origem} – AI
-    // trained" quando o codebook passou pelo Quality Check (options.trained) — e
-    // nesse caso o registro já entra marcado como trained. Novos itens vão para o
-    // topo (dedupe por id) e a aba muda para AI Coder para o usuário ver o
-    // resultado. Protótipo: nada é persistido, some ao recarregar.
-    const handleCreateAICodebook = (sourceCodebookName: string, options?: { trained?: boolean }) => {
-        const trained = options?.trained ?? false;
+    // Cria um registro no AI Coder a partir de um codebook de Coder. Com ou sem
+    // Quality Check, o codebook sai deste fluxo sempre como trained: id
+    // "{origem} – AI trained" e trained = true. Novos itens vão para o topo
+    // (dedupe por id) e a aba muda para AI Coder para o usuário ver o resultado.
+    // Protótipo: nada é persistido, some ao recarregar.
+    const handleCreateAICodebook = (sourceCodebookName: string) => {
         const pad = (n: number) => String(n).padStart(2, '0');
         const now = new Date();
         const date = `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()}`;
         const newCodebook: AICodebook = {
-            id: trained ? `${sourceCodebookName} – AI trained` : `${sourceCodebookName} - AI`,
+            id: `${sourceCodebookName} – AI trained`,
             date,
             codes: 67,
             applyRegex: false,
             applyTraining: true,
             applyCoding: true,
             sourceId: sourceCodebookName,
-            trained,
+            trained: true,
             gai: true,
         };
         setCreatedAICodebooks((prev) => [newCodebook, ...prev.filter((c) => c.id !== newCodebook.id)]);

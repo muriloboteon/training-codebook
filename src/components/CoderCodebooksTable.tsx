@@ -190,8 +190,8 @@ function CoderCodebooksTable({
 }: {
     searchQuery?: string;
     /** Cria um registro no AI Coder a partir do nome do codebook de origem. O pai
-     *  adiciona o sufixo: " - AI" por padrão, ou " – AI trained" quando o codebook
-     *  passou pelo Quality Check (options.trained). Disparado ao concluir. */
+     *  adiciona sempre o sufixo " – AI trained" e marca o registro como trained,
+     *  com ou sem Quality Check. Disparado ao concluir. */
     onCreateAICodebook?: (sourceCodebookName: string, options?: { trained?: boolean }) => void;
 }) {
     const [codebooks] = useState(codebooksData);
@@ -387,9 +387,8 @@ function CoderCodebooksTable({
                 setGeneratedFromCodebook(null);
             }}
             onCreate={(opts) => {
-                // Cria o registro no AI Coder e fecha o validator. Se o codebook
-                // passou pelo Quality Check (opts.trained), o pai o nomeia como
-                // "{origem} – AI trained"; senão mantém "{origem} - AI".
+                // Cria o registro no AI Coder ("{origem} – AI trained", sempre
+                // trained) e fecha o validator.
                 if (generatedFromCodebook) onCreateAICodebook?.(generatedFromCodebook, opts);
                 setRulesOpen(false);
                 setGeneratedFromCodebook(null);

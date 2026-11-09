@@ -122,6 +122,8 @@ export const color = {
     plum: "#86198F",         // série "Different codes" do Quality Check V2 (fuchsia-800; validada p/ daltonismo vs amber/info/teal)
     infoSoft: "#DBEAFE",
     dangerSoft: "#FEE2E2",   // hover do ícone de excluir (red-100)
+    successSoft: "#DCFCE7",  // fundo do ✓ ativo na revisão de code do Quality Check (green-100)
+    codeHighlight: "#E8E8FD", // destaque do trecho da resposta no hover/foco de um code (Quality Check)
     brandSoft: "#F3E8FF",    // hover do ícone de colunas (purple-100)
 } as const;
 

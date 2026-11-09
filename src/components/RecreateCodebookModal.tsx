@@ -26,7 +26,9 @@ import ModalButton from './ModalButton';
 //     selecionado na tabela principal.
 //   - Seleção por pergunta (unidade atômica). O checkbox do estudo é tri-state:
 //     selecionar o estudo marca todas as perguntas; parcial = indeterminado.
-//   - Campo "Instructions" (textarea) opcional para orientações adicionais.
+//   - "Train codebook" inicia o processamento direto. Não há etapa de
+//     Instructions: foi removida no produto porque, ao recriar um codebook
+//     existente, as instruções não tinham efeito (reunião com a PM, 03/11/2026).
 // -----------------------------------------------------------------------------
 
 type QuestionType = 'Open' | 'Other specify';
@@ -261,9 +263,9 @@ export function SortHeader({
     );
 }
 
-// Altura do modal de Instructions. A etapa de processamento
-// (GenerateRulesProcessingModal) importa esta constante para ter exatamente a
-// mesma altura, de modo que a transição não mude o tamanho do modal.
+// Altura dos modais compactos do fluxo (processamento e seletor de amostra).
+// O nome vem do antigo modal de Instructions, removido; mantido para não
+// mexer nos modais que importam esta constante.
 export const INSTRUCTIONS_MODAL_HEIGHT = 360;
 
 /** Pergunta selecionada no Recreate. Segue adiante no fluxo: é a base do
@@ -278,8 +280,8 @@ export interface TrainingQuestion {
 interface RecreateCodebookModalProps {
     isOpen: boolean;
     onClose: () => void;
-    /** Chamado ao confirmar "Start training" no modal de Instructions, com as
-     *  perguntas selecionadas. O pai abre a etapa de processamento por cima;
+    /** Chamado ao clicar "Train codebook", com as perguntas selecionadas.
+     *  O pai abre a etapa de processamento por cima;
      *  este modal permanece aberto atrás, visível pelo overlay do processamento. */
     onGenerate: (questions: TrainingQuestion[]) => void;
     sourceCodebookName: string;
@@ -288,14 +290,11 @@ interface RecreateCodebookModalProps {
 function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName }: RecreateCodebookModalProps) {
     const [expandedStudyIds, setExpandedStudyIds] = useState<string[]>([]);
     const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
-    const [instructions, setInstructions] = useState('');
     const [query, setQuery] = useState('');
     // Sort do grid pai: null = ordem natural. Sort do sub-grid: default "type"
     // asc = Open primeiro, depois alfabético (aplica-se a todos os sub-grids).
     const [studySort, setStudySort] = useState<{ key: StudySortKey; dir: SortDir } | null>(null);
     const [questionSort, setQuestionSort] = useState<{ key: QuestionSortKey; dir: SortDir }>({ key: 'type', dir: 'asc' });
-    // Etapa 2: modal de Instructions, aberto ao clicar "Train codebook".
-    const [showInstructions, setShowInstructions] = useState(false);
 
     // Protótipo: todos os codebooks exibem a mesma lista completa de estudos
     // (research geral). O sourceCodebookName aparece só no cabeçalho.
@@ -321,12 +320,10 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
     useEffect(() => {
         if (isOpen) {
             setSelectedQuestionIds([]);
-            setInstructions('');
             setQuery('');
             setExpandedStudyIds(studies.length === 1 ? [studies[0].id] : []);
             setStudySort(null);
             setQuestionSort({ key: 'type', dir: 'asc' });
-            setShowInstructions(false);
         }
     }, [isOpen, studies]);
 
@@ -334,14 +331,11 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
     useEffect(() => {
         if (!isOpen) return;
         const onKey = (e: KeyboardEvent) => {
-            if (e.key !== 'Escape') return;
-            // Na etapa de Instructions, ESC volta para a seleção; senão fecha.
-            if (showInstructions) setShowInstructions(false);
-            else onClose();
+            if (e.key === 'Escape') onClose();
         };
         document.addEventListener('keydown', onKey);
         return () => document.removeEventListener('keydown', onKey);
-    }, [isOpen, onClose, showInstructions]);
+    }, [isOpen, onClose]);
 
     if (!isOpen) return null;
 
@@ -749,7 +743,19 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
                             <ModalButton
                                 variant="primary"
                                 disabled={!canProceed}
-                                onClick={() => setShowInstructions(true)}
+                                // Sem etapa de Instructions (removida no produto: ao
+                                // recriar um codebook existente elas não tinham efeito).
+                                // O processamento abre por cima; este modal segue aberto
+                                // atrás (visível pelo overlay do processamento).
+                                onClick={() =>
+                                    onGenerate(
+                                        studies.flatMap((s) =>
+                                            s.questions
+                                                .filter((q) => selectedSet.has(q.id))
+                                                .map((q) => ({ id: q.id, text: q.text, studyName: s.name, responses: q.responses })),
+                                        ),
+                                    )
+                                }
                             >
                                 Train codebook
                             </ModalButton>
@@ -759,113 +765,6 @@ function RecreateCodebookModal({ isOpen, onClose, onGenerate, sourceCodebookName
             </div>
         </div>
 
-        {/* Etapa 2 — modal de Instructions (abre ao clicar "Train codebook") */}
-        {showInstructions && (
-            <div
-                role="dialog"
-                aria-modal="true"
-                aria-label="Instructions"
-                onMouseDown={() => setShowInstructions(false)}
-                style={{
-                    position: 'fixed',
-                    inset: 0,
-                    backgroundColor: 'rgba(17, 24, 39, 0.55)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 2100,
-                    padding: space.xl,
-                    fontFamily: font.family,
-                }}
-            >
-                <div
-                    onMouseDown={(e) => e.stopPropagation()}
-                    style={{
-                        width: '560px',
-                        maxWidth: '100%',
-                        height: `${INSTRUCTIONS_MODAL_HEIGHT}px`,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        backgroundColor: color.surface,
-                        borderRadius: radius.xl,
-                        boxShadow: shadow.modal,
-                        overflow: 'hidden',
-                    }}
-                >
-                    {/* Header */}
-                    <div style={{ padding: `${space.lg} ${space.xl}`, borderBottom: `1px solid ${color.border}`, backgroundColor: color.surfaceSubtle, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <span style={{ fontSize: font.size.xl, fontWeight: font.weight.semibold, color: color.textDark }}>Instructions</span>
-                        <button
-                            type="button"
-                            aria-label="Back"
-                            onClick={() => setShowInstructions(false)}
-                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: space.xs, border: 'none', background: 'none', cursor: 'pointer', borderRadius: radius.sm, color: color.textMuted }}
-                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = color.surfaceHover; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
-                        >
-                            <X size={18} weight="bold" />
-                        </button>
-                    </div>
-
-                    {/* Body */}
-                    <div style={{ padding: space.xl, flex: 1, minHeight: 0 }}>
-                        <div style={{ fontSize: font.size.md, color: color.textDark, lineHeight: '20px' }}>
-                            Tell the AI how to build the codebook: how to split codes, how to group them, and anything to watch for.{' '}
-                            <span style={{ fontStyle: 'italic', color: color.textSubtle }}>(optional)</span>
-                        </div>
-                        <textarea
-                            id="recreate-instructions"
-                            value={instructions}
-                            onChange={(e) => setInstructions(e.target.value)}
-                            rows={5}
-                            autoFocus
-                            placeholder={'Example: "Create separate codes for Helpful staff and Nice staff."'}
-                            style={{
-                                width: '100%',
-                                marginTop: space.md,
-                                padding: space.sm,
-                                fontSize: font.size.md,
-                                lineHeight: '20px',
-                                color: color.textDark,
-                                border: `1px solid ${color.borderControl}`,
-                                borderRadius: radius.md,
-                                outline: 'none',
-                                resize: 'vertical',
-                                fontFamily: font.family,
-                                boxSizing: 'border-box',
-                            }}
-                            onFocus={(e) => { e.currentTarget.style.borderColor = color.brand; }}
-                            onBlur={(e) => { e.currentTarget.style.borderColor = color.borderControl; }}
-                        />
-                    </div>
-
-                    {/* Footer */}
-                    <div style={{ padding: `${space.md} ${space.xl}`, borderTop: `1px solid ${color.border}`, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: space.md, backgroundColor: color.surface }}>
-                        <div style={{ display: 'flex', gap: space.sm }}>
-                            <ModalButton variant="tertiary" onClick={() => setShowInstructions(false)}>Cancel</ModalButton>
-                            <ModalButton
-                                variant="primary"
-                                onClick={() => {
-                                    // O modal de Instructions dá lugar ao de processamento:
-                                    // fecha esta etapa e o RecreateCodebookModal segue aberto
-                                    // atrás (visível pelo overlay do processamento).
-                                    setShowInstructions(false);
-                                    onGenerate(
-                                        studies.flatMap((s) =>
-                                            s.questions
-                                                .filter((q) => selectedSet.has(q.id))
-                                                .map((q) => ({ id: q.id, text: q.text, studyName: s.name, responses: q.responses })),
-                                        ),
-                                    );
-                                }}
-                            >
-                                Start training
-                            </ModalButton>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        )}
         </>
     );
 }

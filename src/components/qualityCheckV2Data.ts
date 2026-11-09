@@ -32,6 +32,13 @@ export interface QcResponse {
     text: string;
     manualCodes: string[];
     aiCodes: string[];
+    /**
+     * Evidência dos codes aplicados só pela AI: code → trecho EXATO de `text`
+     * que levou a AI a aplicar o code (destacado no hover do chip, V3).
+     * `null` = a resposta inteira (codes de sentimento geral, ex. Negative
+     * overall experience). Code ausente = sem destaque.
+     */
+    aiEvidence?: Record<string, string | null>;
 }
 
 /** Qual codificação o usuário marcou como correta numa resposta com diferença. */
@@ -96,6 +103,10 @@ const DIFF_RESPONSES: Record<number, Omit<QcResponse, 'id'>> = {
         text: 'The locker rooms used to be disgusting but they renovated them last year and now they’re fine. My real problem is the equipment — half the cable machines have frayed cables and the treadmill by the window has been out of order for a month.',
         manualCodes: [C.poorCondition, C.broken],
         aiCodes: [C.lockerRooms, C.poorCondition, C.broken, C.negative],
+        aiEvidence: {
+            [C.lockerRooms]: 'The locker rooms used to be disgusting',
+            [C.negative]: null,
+        },
     },
     // Heat vs. cooling: a AI não separa o calor do AC que não dá conta.
     7: {
@@ -107,6 +118,10 @@ const DIFF_RESPONSES: Record<number, Omit<QcResponse, 'id'>> = {
         text: 'The showers are never cleaned. There’s mold in the corners and hair in the drains every single time I go.',
         manualCodes: [C.showers],
         aiCodes: [C.showers, C.water, C.uncleanliness],
+        aiEvidence: {
+            [C.water]: 'hair in the drains',
+            [C.uncleanliness]: 'There’s mold in the corners',
+        },
     },
     // A AI não aplicou nenhum code (typos e abreviações).
     14: {
@@ -131,17 +146,26 @@ const DIFF_RESPONSES: Record<number, Omit<QcResponse, 'id'>> = {
             C.uncleanliness, C.lockerRooms, C.restrooms, C.showers, C.grimy,
             C.broken, C.structural, C.heat, C.airCirculation, C.negative,
         ],
+        aiEvidence: {
+            [C.airCirculation]: 'the air just doesn’t move',
+        },
     },
     27: {
         text: 'Staff are friendly and the classes are great. My only complaint is that the pool is always freezing, even in the summer.',
         manualCodes: [C.positive, C.cold],
         aiCodes: [C.positive, C.cold, C.hvac],
+        aiEvidence: {
+            [C.hvac]: 'the pool is always freezing, even in the summer',
+        },
     },
     // Nomes de code longos.
     31: {
         text: 'There’s a bunch of little things. The lockers don’t lock properly, the parking lot lights have been out for weeks, and the manager told me that wasn’t his problem when I mentioned it.',
         manualCodes: [C.otherMaintenance, C.otherStaff, C.rude],
         aiCodes: [C.otherMaintenance, C.unhelpful],
+        aiEvidence: {
+            [C.unhelpful]: 'the manager told me that wasn’t his problem when I mentioned it',
+        },
     },
     36: {
         text: 'Honestly one of the cleanest gyms I’ve been to. Staff wipe everything down constantly and the place looks brand new when you walk in.',
@@ -152,6 +176,10 @@ const DIFF_RESPONSES: Record<number, Omit<QcResponse, 'id'>> = {
         text: 'the water fountains have been broken for like two months so i have to buy water at the desk lol. also the hot water in the showers cuts out halfway thru. staff dont seem to care',
         manualCodes: [C.water, C.inattentive],
         aiCodes: [C.water, C.broken, C.showers, C.inattentive],
+        aiEvidence: {
+            [C.broken]: 'the water fountains have been broken for like two months',
+            [C.showers]: 'the hot water in the showers cuts out halfway thru',
+        },
     },
     46: {
         text: 'It’s way too humid in the weight room, the mirrors fog up and the floor gets slippery. There’s clearly no ventilation back there.',
@@ -164,6 +192,10 @@ const DIFF_RESPONSES: Record<number, Omit<QcResponse, 'id'>> = {
             'I’ve tried a lot of gyms in the area and this one made a great first impression — bright, modern, the equipment looked new. After a couple of months though the cracks started to show. The cardio machines constantly have “out of order” signs and the rowing machines are falling apart. I still like the atmosphere, but the maintenance really needs to catch up.',
         manualCodes: [C.firstImpressions, C.broken, C.poorCondition],
         aiCodes: [C.firstImpressions, C.broken, C.poorCondition, C.positive, C.structural],
+        aiEvidence: {
+            [C.positive]: 'I still like the atmosphere',
+            [C.structural]: 'the cracks started to show',
+        },
     },
     57: {
         text: 'The heating in the yoga studio is broken, so the morning classes are freezing in winter. I told the front desk three times and nothing happened, and the instructor has cancelled class twice without notice.',
@@ -174,6 +206,9 @@ const DIFF_RESPONSES: Record<number, Omit<QcResponse, 'id'>> = {
         text: 'Rude staff, dirty bathrooms, broken machines. Not worth the money.',
         manualCodes: [C.rude, C.restrooms, C.broken, C.negative],
         aiCodes: [C.rude, C.restrooms, C.poorCondition, C.negative],
+        aiEvidence: {
+            [C.poorCondition]: 'broken machines',
+        },
     },
     68: {
         text: 'The roof leaks every time it rains and they just put a bucket under it. There’s also a weird damp smell by the pool.',
@@ -184,27 +219,45 @@ const DIFF_RESPONSES: Record<number, Omit<QcResponse, 'id'>> = {
         text: 'Staff never there.',
         manualCodes: [C.absenteeism],
         aiCodes: [C.absenteeism, C.inattentive],
+        aiEvidence: {
+            [C.inattentive]: 'Staff never there.',
+        },
     },
     // Melhorias (menções positivas) codificadas como problemas.
     79: {
         text: 'I came back after two years away and it’s so much better now. New equipment, cleaner locker rooms, friendlier staff.',
         manualCodes: [C.returning, C.positive],
         aiCodes: [C.returning, C.positive, C.lockerRooms, C.poorCondition],
+        aiEvidence: {
+            [C.lockerRooms]: 'cleaner locker rooms',
+            [C.poorCondition]: 'New equipment',
+        },
     },
     85: {
         text: 'too hot',
         manualCodes: [C.heat],
         aiCodes: [C.hvac],
+        aiEvidence: {
+            [C.hvac]: 'too hot',
+        },
     },
     90: {
         text: 'The trainers are great but the front desk team is really unprofessional — loud personal calls, eating at the desk, and gossiping about members where everyone can hear.',
         manualCodes: [C.unprofessional],
         aiCodes: [C.unprofessional, C.positive, C.rude],
+        aiEvidence: {
+            [C.positive]: 'The trainers are great',
+            [C.rude]: 'gossiping about members where everyone can hear',
+        },
     },
     96: {
         text: 'The AC has been broken all summer. It’s stuffy, it smells, and I’ve seen people nearly pass out in spin class. I’m cancelling my membership.',
         manualCodes: [C.hvac, C.cooling, C.airCirculation, C.negative],
         aiCodes: [C.hvac, C.heat, C.airCirculation, C.uncleanliness],
+        aiEvidence: {
+            [C.heat]: 'It’s stuffy',
+            [C.uncleanliness]: 'it smells',
+        },
     },
 };
 

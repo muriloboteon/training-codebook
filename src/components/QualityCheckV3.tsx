@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type Dispatch, type ReactNode, type SetStateAction } from 'react';
-import { Info, Minus, Plus, X } from '@phosphor-icons/react';
+import { Check, Info, Minus, Plus, X } from '@phosphor-icons/react';
 import { color, font, radius, space, shadow } from '../tokens';
 import { SortHeader, type SortDir, type TrainingQuestion } from './RecreateCodebookModal';
 import ModalButton from './ModalButton';
@@ -17,13 +17,13 @@ import { FALLBACK_SAMPLE, SAMPLE_RESPONSES, type QcDecision, type QcDerivedRespo
 //
 // Diferenças em relação à V2:
 //   - Summary compacto numa faixa só (sem cards/barras).
-//   - Lista densa em linhas alinhadas em colunas (Response · Differences ·
-//     decisão), em vez de um card alto por resposta.
+//   - Lista densa em linhas alinhadas em colunas (Response · Differences),
+//     em vez de um card alto por resposta.
 //   - Diferenças no mesmo chip de code da V2, só com a barra lateral na cor
 //     da série e um sinal (− missed / + added).
 //   - Termos únicos: "Missed by AI" / "Added by AI".
-//   - Manual vem selecionado por padrão em todas as respostas (feedback da
-//     PM): o usuário só troca para AI nas exceções. Sem estado "não revisada".
+//   - Sem coluna "Correct coding" (toggle Manual | AI por resposta): todas as
+//     respostas ficam como Manual (default).
 //   - Mesma toolbar da V1: visões By response / By code (tabela por code,
 //     copiada da V1) e filtro Code (só em By response).
 //   - Uma rolagem só (a do modal): ao rolar, o título da revisão, a toolbar
@@ -31,12 +31,12 @@ import { FALLBACK_SAMPLE, SAMPLE_RESPONSES, type QcDecision, type QcDerivedRespo
 //
 // `codeColumns` escolhe como os codes aparecem na lista (switch do protótipo):
 //   - 'diff'  (layout "V2"): uma coluna Differences com as tags −/+.
-//   - 'split' (layout "V3"): três colunas — Matched in both · Only in manual
-//     coding · Only in AI coding — com todos os codes da resposta, sem sinal
+//   - 'split' (layout "V3"): três colunas — Only in AI coding · Only in manual
+//     coding · Matched in both — com todos os codes da resposta, sem sinal
 //     (a coluna já diz o tipo); a barra do chip segue roxa / âmbar / azul.
 //   - 'stacked' (layout "V4"): os mesmos três grupos do split, mas abaixo do
 //     texto da resposta, empilhados (rótulo à esquerda, chips ao lado). A
-//     tabela fica só com Response · Correct coding.
+//     tabela fica só com a coluna Response.
 //
 // Só no split (V3), por feedback do design director:
 //   - Summary: pergunta à esquerda (sem "Question:", amostra embaixo) e, à direita, 4 indicadores estilo
@@ -206,16 +206,16 @@ const stickyHeaderShell = (top: number): CSSProperties => ({ position: 'sticky',
 const headerFrame: CSSProperties = { border: `1px solid ${color.border}`, borderRadius: `${radius.lg} ${radius.lg} 0 0`, backgroundColor: color.surfaceSubtle };
 
 // Colunas da lista (mesmas no cabeçalho e nas linhas para tudo alinhar):
-//   diff  → resposta · diferenças · decisão
-//   split → resposta · matched · only manual · only AI · decisão
-//   stacked → resposta (com os grupos de codes abaixo) · decisão
+//   diff  → resposta · diferenças
+//   split → resposta · only AI · only manual · matched
+//   stacked → resposta (com os grupos de codes abaixo)
 // diff/split têm linhas divisórias verticais (mesmo padrão da tabela de
 // estudos do RecreateCodebookModal): sem gap entre colunas; cada célula tem
 // padding 8px 12px e borda à direita (ver gridCell). Stacked segue com gap.
 const listColumns = (mode: CodeColumns): CSSProperties => {
-    if (mode === 'split') return { display: 'grid', gridTemplateColumns: 'minmax(220px, 1.4fr) repeat(3, minmax(160px, 1fr)) 168px' };
-    if (mode === 'stacked') return { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 168px', columnGap: space.xl };
-    return { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(220px, 32%) 168px' };
+    if (mode === 'split') return { display: 'grid', gridTemplateColumns: 'minmax(220px, 1.4fr) repeat(3, minmax(160px, 1fr))' };
+    if (mode === 'stacked') return { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)' };
+    return { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(220px, 32%)' };
 };
 
 const hasGridLines = (mode: CodeColumns) => mode !== 'stacked';
@@ -227,12 +227,18 @@ const gridCell = (mode: CodeColumns, last = false): CSSProperties =>
 
 // Grupos de codes, na ordem de exibição de cada modo. No stacked as
 // diferenças vêm primeiro e "Matched in both" (contexto) fica por último.
+// Revisão de um code aplicado só pela AI (por resposta).
+type CodeReview = 'correct' | 'incorrect';
+const reviewKey = (responseId: string, code: string) => `${responseId}::${code}`;
+
 type CodeGroup = 'Matched in both' | 'Only in manual coding' | 'Only in AI coding';
-const CODE_GROUPS: CodeGroup[] = ['Matched in both', 'Only in manual coding', 'Only in AI coding'];
+// Split (V3): a coluna com ação (Only in AI coding) fica ao lado da resposta —
+// chip e trecho destacado ficam próximos — e o contexto (Matched) vai por último.
+const CODE_GROUPS: CodeGroup[] = ['Only in AI coding', 'Only in manual coding', 'Matched in both'];
 const STACKED_GROUPS: CodeGroup[] = ['Only in manual coding', 'Only in AI coding', 'Matched in both'];
 
 // Instrução da revisão (acima da toolbar; no split, no header do modal).
-const REVIEW_INSTRUCTION = "For each response below, choose which coding is correct. Keep Manual (default) to adjust AI Coder's rules to match it, or pick AI if AI Coder got it right.";
+const REVIEW_INSTRUCTION = "For each response below, choose which AI codes are correct. Mark a code as incorrect to adjust AI Coder's rules, or as correct if AI Coder got it right.";
 
 // Tooltip do ícone de info ao lado do título (V3): o que é o Quality Check e
 // o que cada coluna da tabela mostra. O "como revisar" fica no subtítulo.
@@ -266,12 +272,15 @@ function QualityCheckV3({
     onKeepRules,
     onCancel,
     decisions,
-    onDecisionsChange: setDecisions,
     headerExtra,
     codeColumns = 'diff',
 }: QualityCheckV3Props) {
     const [view, setView] = useState<View>('response');
     const [codeFilter, setCodeFilter] = useState<string>('');
+    // Revisão por code (só codes de "Only in AI coding"): chave resposta + code,
+    // então marcar um code não afeta os outros da mesma resposta nem o mesmo
+    // code em outra resposta. Sem estado default: ausente = não revisado.
+    const [codeReviews, setCodeReviews] = useState<Record<string, CodeReview>>({});
     // Altura do bloco sticky (título + toolbar) = `top` do cabeçalho sticky da tabela.
     const toolbarRef = useRef<HTMLDivElement>(null);
     const [toolbarH, setToolbarH] = useState(0);
@@ -320,13 +329,20 @@ function QualityCheckV3({
         : `${plural(manualRows.length, 'response', 'responses')} will be used to update the rules` +
           (aiCount > 0 ? ` · ${aiCount} marked as AI correct` : '');
 
+    // Refino a partir da revisão por code: só os codes de "Only in AI coding"
+    // marcados ✕ (em qualquer resposta) têm a regra refinada. ✓ e não
+    // revisados ficam como estão; "Only in manual coding" não entra.
+    const codesToRefine = Array.from(
+        new Set(DIFFS.flatMap((r) => r.onlyAI.filter((c) => codeReviews[reviewKey(r.id, c)] === 'incorrect'))),
+    );
+    const nothingToRefine = codesToRefine.length === 0;
+
     const handlePrimary = () => {
-        if (allAI) {
+        if (nothingToRefine) {
             onKeepRules();
             return;
         }
-        const codes = new Set(manualRows.flatMap((r) => [...r.onlyManual, ...r.onlyAI]));
-        onUpdateRules(Array.from(codes));
+        onUpdateRules(codesToRefine);
     };
 
 
@@ -606,9 +622,8 @@ function QualityCheckV3({
                                         {codeColumns === 'stacked' ? 'Response and codes' : 'Response'}
                                     </span>
                                     {codeColumns === 'split' &&
-                                        CODE_GROUPS.map((g) => <span key={g} role="columnheader" style={{ ...listHeaderCell, ...gridCell(codeColumns) }}>{g}</span>)}
-                                    {codeColumns === 'diff' && <span role="columnheader" style={{ ...listHeaderCell, ...gridCell(codeColumns) }}>Differences</span>}
-                                    <span role="columnheader" style={{ ...listHeaderCell, justifyContent: 'flex-end', ...gridCell(codeColumns, true) }}>Correct coding</span>
+                                        CODE_GROUPS.map((g, i) => <span key={g} role="columnheader" style={{ ...listHeaderCell, ...gridCell(codeColumns, i === CODE_GROUPS.length - 1) }}>{g}</span>)}
+                                    {codeColumns === 'diff' && <span role="columnheader" style={{ ...listHeaderCell, ...gridCell(codeColumns, true) }}>Differences</span>}
                                 </div>
                                 </div>
 
@@ -625,8 +640,15 @@ function QualityCheckV3({
                                             isLast={i === visibleRows.length - 1}
                                             codeColumns={codeColumns}
                                             striped={split && i % 2 === 1}
-                                            decision={decisionOf(r.id)}
-                                            onDecide={(d) => setDecisions((prev) => ({ ...prev, [r.id]: d }))}
+                                            reviewOf={(code) => codeReviews[reviewKey(r.id, code)]}
+                                            onReview={(code, value) =>
+                                                setCodeReviews((prev) => {
+                                                    const next = { ...prev };
+                                                    if (value) next[reviewKey(r.id, code)] = value;
+                                                    else delete next[reviewKey(r.id, code)];
+                                                    return next;
+                                                })
+                                            }
                                         />
                                     ))
                                 )}
@@ -642,7 +664,8 @@ function QualityCheckV3({
                     <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: space.sm }}>
                         <ModalButton variant="tertiary" onClick={onCancel}>Cancel</ModalButton>
                         <ModalButton variant="primary" onClick={handlePrimary}>
-                            {allAI ? 'Keep rules and continue' : 'Update code rules'}
+                            {/* Rótulo fixo; sem nada a refinar, só conclui o QC (handlePrimary). */}
+                            Update code rules
                         </ModalButton>
                     </div>
                 </div>
@@ -885,16 +908,17 @@ function ReviewRow({
     isLast,
     codeColumns,
     striped = false,
-    decision,
-    onDecide,
+    reviewOf,
+    onReview,
 }: {
     item: QcDerivedResponse;
     isLast: boolean;
     codeColumns: CodeColumns;
     /** Zebra (V3): linha ímpar com fundo surfaceMuted, como a tabela do Coder. */
     striped?: boolean;
-    decision: QcDecision;
-    onDecide: (d: QcDecision) => void;
+    /** Revisão de um code de "Only in AI coding" nesta resposta (undefined = não revisado). */
+    reviewOf: (code: string) => CodeReview | undefined;
+    onReview: (code: string, value: CodeReview | undefined) => void;
 }) {
     const diff = codeColumns === 'diff';
     // Split (V3) e stacked (V4): resposta sempre completa, sem clamp nem
@@ -907,9 +931,12 @@ function ReviewRow({
     });
     const textRef = useRef<HTMLParagraphElement>(null);
     const [expanded, setExpanded] = useState(false);
-    const [isHovered, setIsHovered] = useState(false);
-    const hovered = codeColumns === 'split' && isHovered;
     const [overflows, setOverflows] = useState(false);
+    // Code de "Only in AI coding" em hover / foco por teclado: destaca na
+    // resposta o trecho (aiEvidence) que levou a AI a aplicar o code.
+    const [hoverCode, setHoverCode] = useState<string | null>(null);
+    const [focusCode, setFocusCode] = useState<string | null>(null);
+    const activeCode = hoverCode ?? focusCode;
 
     // "Show more" só quando o texto passa de 2 linhas ou, no modo diff, há
     // codes em comum (que aparecem só expandido; no split/stacked têm grupo
@@ -941,13 +968,23 @@ function ReviewRow({
     const groupContents: Record<CodeGroup, ReactNode> = {
         'Matched in both': item.inBoth.length > 0 ? item.inBoth.map((c) => <MatchedChip key={c} code={c} />) : <EmptyCell />,
         'Only in manual coding': item.onlyManual.length > 0 ? item.onlyManual.map((c) => <DiffChip key={c} kind="missed" code={c} showSign={false} />) : <EmptyCell />,
-        'Only in AI coding': item.onlyAI.length > 0 ? item.onlyAI.map((c) => <DiffChip key={c} kind="added" code={c} showSign={false} />) : noAICodes || <EmptyCell />,
+        'Only in AI coding':
+            item.onlyAI.length > 0
+                ? item.onlyAI.map((c) => (
+                      <AIReviewChip
+                          key={c}
+                          code={c}
+                          value={reviewOf(c)}
+                          onChange={(v) => onReview(c, v)}
+                          onHoverChange={(on) => setHoverCode((prev) => (on ? c : prev === c ? null : prev))}
+                          onFocusChange={(on) => setFocusCode((prev) => (on ? c : prev === c ? null : prev))}
+                      />
+                  ))
+                : noAICodes || <EmptyCell />,
     };
 
     return (
         <li
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
             style={{
                 ...listColumns(codeColumns),
                 // diff/split: células esticam na altura toda (divisória de ponta
@@ -955,9 +992,10 @@ function ReviewRow({
                 alignItems: hasGridLines(codeColumns) ? 'stretch' : 'start',
                 padding: hasGridLines(codeColumns) ? 0 : space.lg,
                 borderBottom: isLast ? undefined : `1px solid ${color.border}`,
-                // Split (V3): hover em controlHover (mesmo das outras tabelas),
-                // um tom acima da zebra; a linha em si não é clicável.
-                backgroundColor: hovered ? color.controlHover : striped ? color.surfaceMuted : undefined,
+                // Split (V3): só zebra, sem hover na linha — o hover em
+                // controlHover apagava o destaque do trecho de evidência
+                // (codeHighlight × controlHover ≈ 1,05:1).
+                backgroundColor: striped ? color.surfaceMuted : undefined,
                 // A lista não corta o overflow (sticky): a última linha acompanha
                 // o raio do container para o fundo zebrado não vazar nos cantos.
                 borderRadius: isLast ? `0 0 ${radius.lg} ${radius.lg}` : undefined,
@@ -975,7 +1013,7 @@ function ReviewRow({
                         ...(expanded || fullText ? null : { display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }),
                     }}
                 >
-                    {item.text}
+                    <HighlightedText text={item.text} excerpt={activeCode && item.aiEvidence && activeCode in item.aiEvidence ? item.aiEvidence[activeCode] : undefined} />
                 </p>
                 {diff && expanded && item.inBoth.length > 0 && (
                     // Codes em comum (só expandido): rótulo em cima, tags embaixo.
@@ -1013,20 +1051,16 @@ function ReviewRow({
                 )}
             </div>
 
-            {codeColumns === 'split' && CODE_GROUPS.map((g) => <ChipCell key={g} style={bodyCell()}>{groupContents[g]}</ChipCell>)}
+            {codeColumns === 'split' && CODE_GROUPS.map((g, i) => <ChipCell key={g} style={bodyCell(i === CODE_GROUPS.length - 1)}>{groupContents[g]}</ChipCell>)}
 
             {diff && (
                 // Diferenças como diff: − missed / + added.
-                <ChipCell style={gridCell(codeColumns)}>
+                <ChipCell style={gridCell(codeColumns, true)}>
                     {item.onlyManual.map((c) => <DiffChip key={`m-${c}`} kind="missed" code={c} />)}
                     {item.onlyAI.map((c) => <DiffChip key={`a-${c}`} kind="added" code={c} />)}
                     {noAICodes}
                 </ChipCell>
             )}
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-start', ...bodyCell(true) }}>
-                <DecisionToggle label={`Correct coding for ${item.id}`} value={decision} onChange={onDecide} />
-            </div>
         </li>
     );
 }
@@ -1079,16 +1113,177 @@ function DiffChip({ kind, code, showSign = true }: { kind: DiffKind; code: strin
     );
 }
 
-// Code aplicado pelos dois lados (split/stacked): chip padrão, barra roxa.
+// Code de "Only in AI coding" (split/stacked) com revisão própria: dois
+// botões ✓ / ✕ dentro do chip, sem estado default. Cada chip é independente;
+// clicar de novo no botão ativo desfaz a marcação (volta a não revisado).
+// Hover (chip inteiro, botões incluídos) e foco por teclado (:focus-visible,
+// para o destaque não ficar preso depois de um clique) avisam a linha, que
+// destaca o trecho correspondente na resposta.
+function AIReviewChip({
+    code,
+    value,
+    onChange,
+    onHoverChange,
+    onFocusChange,
+}: {
+    code: string;
+    value: CodeReview | undefined;
+    onChange: (v: CodeReview | undefined) => void;
+    onHoverChange: (on: boolean) => void;
+    onFocusChange: (on: boolean) => void;
+}) {
+    const d = DIFF.added;
+    // Tooltip: sem marcação = ação + consequência; ativo = estado + como desfazer.
+    const options: { value: CodeReview; label: string; tip: string; activeTip: string; Icon: typeof Check; fg: string; bg: string }[] = [
+        {
+            value: 'correct',
+            label: 'Correct',
+            tip: 'Mark as correct. The rule stays as it is.',
+            activeTip: 'Marked as correct. Click to undo.',
+            Icon: Check,
+            fg: color.success,
+            bg: color.successSoft,
+        },
+        {
+            value: 'incorrect',
+            label: 'Incorrect',
+            tip: 'Mark as incorrect. The rule will be refined.',
+            activeTip: 'Marked as incorrect. Click to undo.',
+            Icon: X,
+            fg: color.danger,
+            bg: color.dangerSoft,
+        },
+    ];
+    return (
+        <span
+            onMouseEnter={() => onHoverChange(true)}
+            onMouseLeave={() => onHoverChange(false)}
+            onFocus={(e) => onFocusChange(e.target.matches(':focus-visible'))}
+            onBlur={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node | null)) onFocusChange(false);
+            }}
+            style={{ ...codeChipStyle, alignItems: 'center', gap: space.sm, paddingRight: '4px' }}
+        >
+            {/* Barra roxa (não o azul da série "added"): mesma cor do
+                sublinhado do trecho destacado na resposta. */}
+            <CodeChipAccent fill={color.codeChipAccent} />
+            <span title={d.chipTooltip} style={{ ...codeChipLabel, cursor: 'help' }}>
+                <span style={visuallyHidden}>{d.column}: </span>
+                {code}
+            </span>
+            <span
+                role="group"
+                aria-label={`Review ${code}`}
+                style={{ display: 'inline-flex', gap: '2px', flexShrink: 0, alignSelf: 'stretch', alignItems: 'center', paddingLeft: '6px', borderLeft: `1px solid ${color.borderInput}` }}
+            >
+                {options.map(({ value: v, label, tip, activeTip, Icon, fg, bg }) => (
+                    <ReviewIconButton
+                        key={v}
+                        label={`Mark ${code} as ${label.toLowerCase()}`}
+                        title={value === v ? activeTip : tip}
+                        active={value === v}
+                        fg={fg}
+                        bg={bg}
+                        onClick={() => onChange(value === v ? undefined : v)}
+                    >
+                        <Icon size={14} weight="bold" />
+                    </ReviewIconButton>
+                ))}
+            </span>
+        </span>
+    );
+}
+
+function ReviewIconButton({
+    label,
+    title,
+    active,
+    fg,
+    bg,
+    onClick,
+    children,
+}: {
+    label: string;
+    title: string;
+    active: boolean;
+    fg: string;
+    bg: string;
+    onClick: () => void;
+    children: ReactNode;
+}) {
+    const [hover, setHover] = useState(false);
+    return (
+        <button
+            type="button"
+            aria-label={label}
+            aria-pressed={active}
+            title={title}
+            onClick={onClick}
+            onMouseEnter={() => setHover(true)}
+            onMouseLeave={() => setHover(false)}
+            style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '22px',
+                height: '22px',
+                padding: 0,
+                border: 'none',
+                borderRadius: radius.sm,
+                backgroundColor: active ? bg : hover ? color.controlHover : 'transparent',
+                color: active ? fg : color.textSubtle,
+                cursor: 'pointer',
+                transition: 'background-color 140ms, color 140ms',
+            }}
+        >
+            {children}
+        </button>
+    );
+}
+
+// Code aplicado pelos dois lados (split/stacked): chip padrão, barra azul
+// (o roxo ficou com os chips de "Only in AI coding", coerente com o destaque).
 function MatchedChip({ code }: { code: string }) {
     return (
         <span
             title="Manual coding and AI Coder both applied this code."
             style={{ ...codeChipStyle, cursor: 'help' }}
         >
-            <CodeChipAccent fill={color.codeChipAccent} />
+            <CodeChipAccent fill={color.info} />
             <span style={codeChipLabel}>{code}</span>
         </span>
+    );
+}
+
+// Texto da resposta com o trecho de evidência destacado. `excerpt`:
+// undefined = sem destaque; null = resposta inteira; string = trecho exato
+// (se não for encontrado no texto, nada é destacado).
+function HighlightedText({ text, excerpt }: { text: string; excerpt: string | null | undefined }) {
+    const mark = (s: string) => (
+        <mark
+            style={{
+                backgroundColor: color.codeHighlight,
+                color: 'inherit',
+                borderRadius: '2px',
+                textDecoration: 'underline',
+                textDecorationColor: color.codeChipAccent,
+                textDecorationThickness: '1px',
+                textUnderlineOffset: '3px',
+            }}
+        >
+            {s}
+        </mark>
+    );
+    if (excerpt === undefined) return <>{text}</>;
+    if (excerpt === null) return mark(text);
+    const i = text.indexOf(excerpt);
+    if (i < 0) return <>{text}</>;
+    return (
+        <>
+            {text.slice(0, i)}
+            {mark(excerpt)}
+            {text.slice(i + excerpt.length)}
+        </>
     );
 }
 
@@ -1104,59 +1299,6 @@ function EmptyCell() {
         <span aria-label="None" style={{ fontSize: font.size.md, lineHeight: '30px', color: color.textFaint }}>
             —
         </span>
-    );
-}
-
-// Decisão ("Manual | AI"). Manual vem selecionado por padrão.
-function DecisionToggle({ label, value, onChange }: { label: string; value: QcDecision; onChange: (d: QcDecision) => void }) {
-    const options: { value: QcDecision; label: string }[] = [
-        { value: 'manual', label: 'Manual' },
-        { value: 'ai', label: 'AI' },
-    ];
-    return (
-        <div
-            role="group"
-            aria-label={label}
-            style={{
-                display: 'inline-grid',
-                gridTemplateColumns: '1fr 1fr',
-                flexShrink: 0,
-                border: `1px solid ${color.borderControl}`,
-                borderRadius: radius.lg,
-                overflow: 'hidden',
-                backgroundColor: color.surface,
-            }}
-        >
-            {options.map((o, i) => {
-                const active = o.value === value;
-                return (
-                    <button
-                        key={o.value}
-                        type="button"
-                        aria-pressed={active}
-                        onClick={() => onChange(o.value)}
-                        style={{
-                            minWidth: '72px',
-                            height: '28px',
-                            padding: `0 ${space.md}`,
-                            border: 'none',
-                            borderLeft: i === 0 ? 'none' : `1px solid ${color.borderControl}`,
-                            backgroundColor: active ? color.brandPrimarySoft : color.surface,
-                            color: active ? color.brandPrimary : color.textSubtle,
-                            fontFamily: font.family,
-                            fontSize: font.size.md,
-                            fontWeight: active ? font.weight.semibold : font.weight.medium,
-                            lineHeight: '20px',
-                            whiteSpace: 'nowrap',
-                            cursor: 'pointer',
-                            transition: 'background-color 140ms, color 140ms',
-                        }}
-                    >
-                        {o.label}
-                    </button>
-                );
-            })}
-        </div>
     );
 }
 

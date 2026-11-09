@@ -267,7 +267,6 @@ function QualityCheckV3({
     isOpen,
     sampleQuestion,
     onUpdateRules,
-    onKeepRules,
     onCancel,
     headerExtra,
     codeColumns = 'diff',
@@ -324,15 +323,8 @@ function QualityCheckV3({
     const codesToRefine = Array.from(
         new Set(DIFFS.flatMap((r) => r.onlyAI.filter((c) => codeReviews[reviewKey(r.id, c)] === 'incorrect'))),
     );
+    // "Update code rules" só habilita com pelo menos um code marcado ✕.
     const nothingToRefine = codesToRefine.length === 0;
-
-    const handlePrimary = () => {
-        if (nothingToRefine) {
-            onKeepRules();
-            return;
-        }
-        onUpdateRules(codesToRefine);
-    };
 
 
     return (
@@ -651,8 +643,7 @@ function QualityCheckV3({
                 <div style={{ flexShrink: 0, padding: `${space.md} ${space.xl}`, borderTop: `1px solid ${color.border}`, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: space.lg, backgroundColor: color.surface }}>
                     <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: space.sm }}>
                         <ModalButton variant="tertiary" onClick={onCancel}>Cancel</ModalButton>
-                        <ModalButton variant="primary" onClick={handlePrimary}>
-                            {/* Rótulo fixo; sem nada a refinar, só conclui o QC (handlePrimary). */}
+                        <ModalButton variant="primary" disabled={nothingToRefine} onClick={() => onUpdateRules(codesToRefine)}>
                             Update code rules
                         </ModalButton>
                     </div>

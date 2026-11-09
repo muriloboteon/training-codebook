@@ -123,8 +123,6 @@ const CODE_STATS: CodeStat[] = (() => {
 // Mesmos codes em ordem alfabética (filtro Code).
 const DIFF_CODES_ALPHA = CODE_STATS.map((s) => s.code).sort((a, b) => a.localeCompare(b));
 
-const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
-
 // Cores das diferenças (mesmas séries da V2): missed = âmbar, added = azul.
 const DIFF = {
     missed: {
@@ -271,7 +269,6 @@ function QualityCheckV3({
     onUpdateRules,
     onKeepRules,
     onCancel,
-    decisions,
     headerExtra,
     codeColumns = 'diff',
 }: QualityCheckV3Props) {
@@ -311,10 +308,6 @@ function QualityCheckV3({
     // Split (V3): títulos das colunas podem quebrar em 2 linhas quando falta
     // espaço (em vez de um invadir o outro); nas outras versões, uma linha só.
     const listHeaderCell: CSSProperties = split ? { ...headerCell, whiteSpace: 'normal' } : headerCell;
-    const decisionOf = (id: string): QcDecision => decisions[id] ?? 'manual';
-    const manualRows = DIFFS.filter((r) => decisionOf(r.id) === 'manual');
-    const aiCount = DIFFS.length - manualRows.length;
-    const allAI = manualRows.length === 0;
 
     const filteredRows = DIFFS.filter((r) => !codeFilter || r.onlyManual.includes(codeFilter) || r.onlyAI.includes(codeFilter));
     // Split (V3): ordem padrão da mais para a menos divergente (total de codes
@@ -324,10 +317,6 @@ function QualityCheckV3({
 
     const question = sampleQuestion?.text ?? FALLBACK_SAMPLE.text;
 
-    const footerNote = allAI
-        ? `All ${DIFFS.length} responses marked as AI correct. The rules stay as they are.`
-        : `${plural(manualRows.length, 'response', 'responses')} will be used to update the rules` +
-          (aiCount > 0 ? ` · ${aiCount} marked as AI correct` : '');
 
     // Refino a partir da revisão por code: só os codes de "Only in AI coding"
     // marcados ✕ (em qualquer resposta) têm a regra refinada. ✓ e não
@@ -658,9 +647,8 @@ function QualityCheckV3({
                         </section>
                 </div>
 
-                {/* Footer (fixo) */}
-                <div style={{ flexShrink: 0, padding: `${space.md} ${space.xl}`, borderTop: `1px solid ${color.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: space.lg, backgroundColor: color.surface }}>
-                    <span style={{ fontSize: font.size.md, color: color.textDark, lineHeight: '20px' }}>{footerNote}</span>
+                {/* Footer (fixo): só as ações, alinhadas à direita (sem texto de resumo). */}
+                <div style={{ flexShrink: 0, padding: `${space.md} ${space.xl}`, borderTop: `1px solid ${color.border}`, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: space.lg, backgroundColor: color.surface }}>
                     <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: space.sm }}>
                         <ModalButton variant="tertiary" onClick={onCancel}>Cancel</ModalButton>
                         <ModalButton variant="primary" onClick={handlePrimary}>
